@@ -113,7 +113,10 @@ function applyLanguage(){
   }
   for(const [attribute,key] of [['aria-label','i18nAria'],['title','i18nTitle'],['content','i18nContent']]){
     const selector={'i18nAria':'data-i18n-aria','i18nTitle':'data-i18n-title','i18nContent':'data-i18n-content'}[key];
-    for(const element of document.querySelectorAll(`[${selector}]`))element.setAttribute(attribute,t(element.dataset[key]));
+    for(const element of document.querySelectorAll(`[${selector}]`)){
+      const message=element.dataset[key];
+      element.setAttribute(attribute,t(touchControls&&['control.beam','control.log'].includes(message)?`${message}Touch`:message));
+    }
   }
   if(touchControls)$('battlefield').setAttribute('aria-label',t('map.touchDescription'));
   $('language-toggle').dataset.language=getLanguage();
@@ -503,7 +506,7 @@ function updateCoach(){
   const key=coach?`${coach.step}:${getLanguage()}`:'';
   if(key===coachKey)return;coachKey=key;
   $('coach').hidden=!coach;if(!coach)return;
-  $('coach-text').innerHTML=t(`coach.${coach.step}`);positionCoach();
+  $('coach-text').innerHTML=t(coach.step==='beam'&&touchControls?'coach.beamTouch':`coach.${coach.step}`);positionCoach();
 }
 function positionCoach(){
   const box=$('coach');if(!coach||box.hidden)return;
@@ -570,7 +573,7 @@ function updateHud(){
   $('next-wave').innerHTML=`<span>${t(building?game.wave===0?'action.firstWave':'action.nextWave':game.phase==='wave'?game.paused?'action.resume':'action.pause':'action.record')}</span><b>${game.phase==='wave'&&!game.paused?'Ⅱ':'→'}</b>`;
   $('next-wave').classList.toggle('ready',building&&game.towers.length>1);
   $('wave-hint').textContent=t(building?'hint.build':game.phase==='wave'?'hint.wave':'hint.end');
-  const b=game.beam,beam=ability('beam',t('beam.name'),b.spot?(game.phase==='wave'?t('beam.left',{seconds:Math.ceil(b.hold)}):t('beam.waiting')):t('beam.hint'));
+  const b=game.beam,beam=ability('beam',t('beam.name'),b.spot?(game.phase==='wave'?t('beam.left',{seconds:Math.ceil(b.hold)}):t('beam.waiting')):t(touchControls?'beam.hintTouch':'beam.hint'));
   beam.classList.toggle('on',!!b.spot);beam.disabled=!game.canEdit();meter(beam,b.spot?b.hold/BEAM.hold:0);
   const od=ability('overdrive',t(game.overdrive>0?'overdrive.active':'overdrive.name'),t(game.overdrive>0?'overdrive.left':game.overdriveCooldown>0?'overdrive.ready':'overdrive.hint',{seconds:Math.ceil(game.overdrive>0?game.overdrive:game.overdriveCooldown)}));
   od.disabled=game.phase!=='wave'||game.overdriveCooldown>0||game.paused;od.classList.toggle('on',game.overdrive>0);

@@ -40,6 +40,28 @@ test('reload restores the paid defenses and mid-wave state into a paused watch',
   await page.evaluate(()=>window.lastBeacon.back());await expect(page.locator('#exit-dialog')).toBeVisible();
   await page.evaluate(()=>window.lastBeacon.back());await expect(page.locator('#exit-dialog')).not.toBeVisible();
 });
+for(const locale of ['zh','en'])test(`${locale} native beam coaching uses the visible touch control`,async({page})=>{
+  await page.addInitScript(locale=>localStorage.setItem('last-beacon-language',locale),locale);
+  await page.goto('/dist-native/?view=2d');
+  await expect(page.locator('.game-shell')).toHaveAttribute('aria-busy','false');
+  await page.locator('[data-type="gun"].build-card').tap();await page.locator('[data-pad="1"]').tap();
+  await expect(page.locator('#credits')).toHaveText('115');await page.locator('#next-wave').tap();
+  await expect(page.locator('#coach-text')).toContainText(locale==='en'?'Tap the Beam button':'点击「光束」按钮');
+  await expect(page.locator('#coach-text')).not.toContainText(/Press B|按 B/);
+  await expect(page.locator('#beam')).not.toHaveAttribute('title',/\[B\]/);
+  await expect(page.locator('#log-toggle')).not.toHaveAttribute('aria-label',/\[L\]/);
+  await page.locator('#beam').tap();await expect(page.locator('#beam')).toHaveClass(/\bon\b/);
+  await expect(page.locator('#coach')).toBeHidden();
+});
+test.describe('desktop coaching',()=>{
+  test.use({isMobile:false,hasTouch:false,viewport:{width:1024,height:768}});
+  test('keeps the keyboard beam instructions',async({page})=>{
+    await page.addInitScript(()=>localStorage.setItem('last-beacon-language','en'));
+    await open(page);await page.locator('[data-type="gun"].build-card').click();await page.locator('[data-pad="1"]').click();
+    await page.locator('#next-wave').click();await expect(page.locator('#coach-text')).toContainText('Press B');
+    await expect(page.locator('#beam')).toHaveAttribute('title',/\[B\]/);
+  });
+});
 test('storage failures stay visible and retry succeeds without discarding the game',async({page})=>{
   await open(page);
   await page.evaluate(async()=>{const b=window.lastBeacon.platform.runs;window.restoreRunWrite=b.write;b.write=async()=>{throw new Error('disk full');};await window.lastBeacon.checkpoint();});

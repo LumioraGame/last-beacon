@@ -55,7 +55,7 @@ function stopApp(){
   try{sim('terminate',udid,app);}catch(error){if(!/not running|No such process|nothing to terminate/i.test(String(error.stderr)))throw error;}
 }
 
-xcode('baseline',['-scheme','MobileSmoke','-only-testing:MobileSmoke/SmokeUITests/testTouchLifecycleAndRotation','-resultBundlePath',join(output,'baseline.xcresult'),'test']);
+xcode('baseline',['-scheme','MobileSmoke','-resultBundlePath',join(output,'baseline.xcresult'),'test']);
 await verifyAssets();
 const original=plist(join(builtApp,'Info.plist'));
 assert.equal(original.CFBundleIdentifier,app);
