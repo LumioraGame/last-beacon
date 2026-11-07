@@ -8,7 +8,7 @@ Implementation is on `mobile/release-readiness` ([draft PR #1](https://github.co
 
 | Package | Current result | Remaining acceptance work |
 | --- | --- | --- |
-| M0 | Baseline reproduced; app ID selected; Apple team N2U5V543PB confirmed; phone orientations/iPhone-only iOS scope; public support URLs; organization Play account | Distribution signing ownership, legal contact confirmation, physical QA devices |
+| M0 | Baseline reproduced; app ID selected; Apple team N2U5V543PB confirmed; phone orientations/iPhone-only iOS scope; public support URLs; organization Play account | Signing backup/recovery ownership, legal contact confirmation, physical QA devices |
 | M1 | Separate native bundle, platform adapters, asynchronous bootstrap, release debug flag; static and single-file builds retained | Final PR checks after subsequent changes |
 | M2 | Both platforms compile; development/distribution iOS signing and Android upload signing verified; artwork/splash and version stamping wired | Publisher key backup/custody review and final store validation |
 | M3 | Native Preferences hydration/migration, ordered verified writes, web fallback implemented and tested | Upgrade verification on physical minimum devices |
@@ -16,10 +16,10 @@ Implementation is on `mobile/release-readiness` ([draft PR #1](https://github.co
 | M5 | Pause ownership, native Back, lifecycle saves, GL restore/2D recovery, audio recovery and ambient iOS category | Silent switch, calls/Siri, headphones, repeated real-device memory pressure |
 | M6 | Compact landscape cards/menu, touch wording/selection, native inset handling and zoom policy | Physical cutouts/navigation variants and accessibility enlargement |
 | M7 | Idle draw cap, sustained-load quality downgrade, bounded local diagnostics and review/copy UI | Physical FPS/memory/thermal/battery measurements |
-| M8 | Policy/support published; privacy manifest and license notices bundled; Apple app 6831920904 created; bilingual metadata saved; icons/feature graphic and 24 gameplay screenshots | Screenshot-slot uploads, privacy/rating/contact/territory completion and publisher review |
-| M9 | Unit/browser tests, native emulator/simulator tests, unsigned candidates, passing hosted CI and manually dispatched signing workflows | Signed candidates, store beta distribution/feedback, production access, publisher review |
+| M8 | Policy/support published; privacy manifest and license notices bundled; Apple app 6831920904; bilingual metadata and required screenshots; free pricing; 174 territories excluding mainland China | Privacy publication, ratings/contact, Play app creation/declarations/listings and publisher review |
+| M9 | Passing unit/browser/native checks and hosted CI; signed IPA/AAB; Apple build processed and associated with version 1.0.0; internal QA group prepared | Authorized testers, Play upload/testing, beta feedback, physical QA, production access and publisher review |
 
-Verified so far: **50 Node tests, 11 native file-storage interruption tests, 22 mobile browser checks, and 2 native iOS UI tests**, deterministic full-campaign/extended-endless checkpoint restoration, browser GL recovery, packaged Android build/pause/OS-kill/Continue, and native iOS interaction/rotation/lifecycle recovery. Exact commands, build hashes, screenshot dimensions, and remaining physical-device gates are recorded in [VALIDATION.md](VALIDATION.md). Local screenshots and native reports are in ignored `artifacts/`; distribution signing and publisher review remain open.
+Verified so far: **50 Node tests, 11 native file-storage interruption tests, 22 mobile browser checks, and 2 native iOS UI tests**, deterministic full-campaign/extended-endless checkpoint restoration, browser GL recovery, packaged Android build/pause/OS-kill/Continue, and native iOS interaction/rotation/lifecycle recovery. Exact commands, signed artifact hashes, screenshot dimensions, and remaining physical-device gates are recorded in [VALIDATION.md](VALIDATION.md). Packaging source **871af0a** passes all three [hosted CI jobs](https://github.com/LumioraGame/last-beacon/actions/runs/42357128849). Local screenshots and native reports are in ignored `artifacts/`; beta/device acceptance and publisher review remain open.
 
 Remaining external inputs have these owners and gates:
 
@@ -29,6 +29,14 @@ Remaining external inputs have these owners and gates:
 | Supported physical iPhone/Android devices, unlocked and available for QA | Publisher supplies devices; engineer runs QA | M3–M7/M9 physical update, input, audio, thermal and performance acceptance |
 | Final contact, audience, privacy/rating/legal/trader and territory answers | Lumiora publisher | M8 store declarations; mainland China remains excluded by the launch plan |
 | Exact-candidate/listing review and TestFlight/Play beta participation | Publisher/testers | M9 beta findings and release approval |
+
+### Remaining execution order
+
+1. **Publisher inputs:** resolve the pending Apple privacy-publication certification and Play creation policy/export certifications; provide review contact and intended tester recipients. Apple privacy is saved as a draft. Play creation is prepared with the available package `ai.lumiora.lastbeacon`, English, Game and Free; the legal checkboxes remain unchecked and no record has been created.
+2. **Complete store setup:** publish authorized privacy responses; finish ratings, audience, content rights and contact, and resolve any territory-specific permits shown by the console. Apple free pricing and 174 territories excluding mainland China are saved; Mac/Vision Pro distribution is disabled for the phone-only launch. Create the Play record once its certifications are authorized, configure signing, upload the existing signed AAB, save both localized listings/assets and complete Data safety and availability. Verify each saved result in its actual console.
+3. **Run physical acceptance:** use an older supported iPhone and low-end Android phone for fresh offline install, settings/save-preserving update, OS kill/Continue, cutouts/navigation, enlarged text, touch/camera and audio interruptions. Record complete-campaign/endless FPS, memory, heat and battery results. Fix failures before accepting the hardware floor.
+4. **Run store beta:** Apple build **1.0.0 (1794024483)** is Ready to Test in **Last Beacon QA**, with automatic distribution disabled and **0 testers**. Add only authorized recipients, distribute the corresponding Play candidate, and resolve beta/pre-launch findings. Creating a group does not establish beta coverage.
+5. **Review the exact release:** confirm final binaries, listings, declarations, territories, signing recovery and all P0/P1 evidence. Any binary fix needs a higher build number and fresh candidate checks. Submission/public release remains gated by those results and publisher review.
 
 The app minimum is **iOS 15.5**, Android **API 24** with **WebView 102+**, targeting **API 36**. The game needs newer web APIs than Capacitor's iOS 15.0 minimum: [Safari 15.4 added dialogs and Object.hasOwn](https://developer.apple.com/documentation/safari-release-notes/safari-15_4-release-notes), and [Safari 15.5 added inert](https://webkit.org/blog/12669/new-webkit-features-in-safari-15-5/). Current native execution evidence is iOS 26.3 / Android API 36; minimum-version physical testing remains open.
 
@@ -48,9 +56,9 @@ Legend: **P0** blocks store submission or causes a broken experience, **P1** sho
   Fix: serialize `Game` state (it's deterministic and browser-independent in `src/game.js`) on `visibilitychange→hidden` / `pagehide` / Capacitor `App.pause`, then offer "Continue" on launch.
 - [x] **WebGL context loss recovery.** Loss pauses combat; restore rebuilds the renderer after Three.js resets its caches. Timeout/repeated loss falls back to 2D. Browser tests exercise restore and timeout fallback while preserving the run and controls.
   Fix: listen on the canvas, `preventDefault()`, then recreate the renderer on restore (`createRenderer()` already exists in `src/app.js`), or fall back to 2D.
-- [ ] **Privacy policy and store privacy declarations.** Both stores require a privacy policy URL even when the app collects nothing.
+- [ ] **Privacy policy and store privacy declarations.** Public policy/support pages and both Apple policy URLs are saved; the audited Apple Data Not Collected answer is a draft awaiting the publisher's final certification. Play Data safety and current rating forms remain open.
   Fix: publish a policy matching the final app and SDK behavior, then fill in App Privacy, Google Play Data safety, and the current content rating questionnaires. Use "Data Not Collected" only after auditing the final build; let the questionnaires determine ratings. Include an app-target `PrivacyInfo.xcprivacy` covering the required-reason APIs actually used by the app and plugins.
-- [ ] **China mainland App Store.** All games there, free ones included, need an ISBN/版号 approval number. The game is Chinese-first, so either get one or exclude the China mainland storefront at launch. Google Play isn't available in mainland China, so Android China needs separate stores (TapTap, Huawei, etc.) if wanted.
+- [x] **China mainland App Store excluded for v1.** Apple availability is saved for 174 territories, with China mainland explicitly Not Available and automatic future-territory inclusion off. Simplified Chinese remains supported elsewhere. Reopening this market requires the applicable game approvals; Android China distribution remains outside v1 scope.
 - [x] **Store listing asset preparation.** English/zh-Hans copy, support URL, icons/feature graphic, and 24 real packaged-app screenshots are prepared: iPhone 1206×2622 / 1320×2868, Android phone 1080×1920 and tablet 1600×2560. Native iPad is deferred. Signed-candidate review and current console validation remain release gates; preview video is optional.
 
 ## P1: fix before launch
@@ -272,7 +280,7 @@ Total: approximately **13–22 engineering days**, plus external waiting time. S
 - [ ] Every P0 and P1 item has its linked implementation and passing evidence; no checkbox is closed solely because code exists.
 - [ ] Fresh offline install, saved-run recovery, update migration, WebGL fallback, Back, audio, and both phone orientations pass on actual supported devices.
 - [ ] Minimum-device performance is measured and acceptable; supported device/OS claims match the tested range.
-- [ ] Final archives contain current web assets, correct IDs/versions, release flags, signing, artwork, and privacy manifests.
+- [x] Final build 1794024483 IPA/AAB contain all 20 current web assets, correct IDs/versions, release flags, signing, artwork and iOS privacy declarations; checksums are in VALIDATION.md. Reverify after any binary change.
 - [ ] Policy/support pages, privacy declarations, ratings, localized listings, screenshots, territories, and account-specific requirements are complete.
 - [ ] TestFlight/Play beta findings are resolved and applicable closed-test/production-access requirements are satisfied.
 - [ ] Publisher has reviewed the exact candidate build and listing; signing/upload/release ownership is recorded.
