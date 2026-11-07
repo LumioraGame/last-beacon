@@ -13,6 +13,7 @@ on:
       apple_team:
         description: Apple team ID (required for iOS)
         type: string
+        default: N2U5V543PB
         required: false
 permissions:
   contents: read
@@ -40,7 +41,7 @@ jobs:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
           log-accepted-android-sdk-licenses: false
       - run: npm ci
-      - run: npm test && npm run build:native && npm run mobile:version && npx cap sync android
+      - run: npm test && npm run test:native-storage && npm run build:native && npm run mobile:version && npx cap sync android
       - name: Install upload key
         env:
           KEYSTORE_BASE64: ${{ secrets.LAST_BEACON_ANDROID_KEYSTORE_BASE64 }}
@@ -78,7 +79,7 @@ jobs:
         with:
           xcode-version: '26.3'
       - run: npm ci
-      - run: npm test && npm run build:native && npm run mobile:version && npx cap sync ios
+      - run: npm test && npm run test:native-storage && npm run build:native && npm run mobile:version && npx cap sync ios
       - name: Install distribution certificate and profile
         env:
           CERTIFICATE_BASE64: ${{ secrets.LAST_BEACON_IOS_CERTIFICATE_BASE64 }}

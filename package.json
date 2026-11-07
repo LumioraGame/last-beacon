@@ -18,6 +18,7 @@
     "mobile:ios": "npm run mobile:sync && cap open ios",
     "mobile:android": "npm run mobile:sync && cap open android",
     "test:mobile": "playwright test",
+    "test:native-storage": "node --test tests/native/*.test.mjs",
     "test:android": "node scripts/android-smoke.mjs",
     "store:scenes": "node scripts/prepare-store-scenes.mjs",
     "store:capture:android": "node scripts/capture-android-store.mjs",

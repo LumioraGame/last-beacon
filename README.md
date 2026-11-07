@@ -118,9 +118,18 @@ npm run mobile:ios
 
 `npm run build:native` 生成独立的 `dist-native/`，保留原有 `dist/` 网站与单文件离线版。`mobile:sync` 先构建、写入递增版本号，再同步两个原生工程。营销版本来自 `package.json`，候选构建号可通过 `MOBILE_BUILD_NUMBER` 显式指定；默认使用秒级时间戳并在本机保证递增。发布时须高于两个商店已使用的构建号。原生调试网页包可用 `npm run build:native:debug` 生成，正式包会移除游戏调试入口。
 
+已通过本机开发证书确认 Lumiora Labs Inc. 的 Apple Team 为 `N2U5V543PB`，工程和签名工作流使用该默认值。本机开发签名构建已成功；它供已注册的设备测试使用，不能代替 TestFlight / App Store 的发行签名。物理设备需要解锁并启用开发者模式。可用以下命令生成开发包：
+
+```sh
+xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+  -destination 'generic/platform=iOS' -derivedDataPath artifacts/ios-development \
+  DEVELOPMENT_TEAM=N2U5V543PB CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates build
+```
+
 ```sh
 npx playwright install chromium
 npm run test:mobile
+npm run test:native-storage
 # 已安装 debug APK 的专用 QA 设备（测试会开始新的一局）：
 ANDROID_SERIAL=emulator-5570 npm run test:android
 ```

@@ -8,9 +8,9 @@ Implementation is on `mobile/release-readiness` ([draft PR #1](https://github.co
 
 | Package | Current result | Remaining acceptance work |
 | --- | --- | --- |
-| M0 | Baseline reproduced; app ID selected; phone orientations/iPhone-only iOS scope; public support URLs; authenticated organization Play account | Publisher Apple team, signing ownership, legal contact confirmation, physical QA devices |
+| M0 | Baseline reproduced; app ID selected; Apple team N2U5V543PB confirmed; phone orientations/iPhone-only iOS scope; public support URLs; organization Play account | Distribution signing ownership, legal contact confirmation, physical QA devices |
 | M1 | Separate native bundle, platform adapters, asynchronous bootstrap, release debug flag; static and single-file builds retained | Final PR checks after subsequent changes |
-| M2 | iOS/Android projects compile; app icons/adaptive artwork/splash generated; marketing/build numbers wired | Distribution signing and final store validation |
+| M2 | iOS/Android projects compile; development-signed iOS build verified; artwork/splash and version stamping wired | Distribution signing and final store validation |
 | M3 | Native Preferences hydration/migration, ordered verified writes, web fallback implemented and tested | Upgrade verification on physical minimum devices |
 | M4 | Validated versioned snapshots, dual checkpoint slots, Continue/New watch, periodic/event/background saves, terminal markers | Physical OS-kill/update testing; extended real-device endless sessions |
 | M5 | Pause ownership, native Back, lifecycle saves, GL restore/2D recovery, audio recovery and ambient iOS category | Silent switch, calls/Siri, headphones, repeated real-device memory pressure |
@@ -19,7 +19,16 @@ Implementation is on `mobile/release-readiness` ([draft PR #1](https://github.co
 | M8 | Bilingual policy/support pages published, issue tracker enabled, app privacy manifest, localized listings, icons/feature graphic, 24 packaged gameplay screenshots | Signed-candidate screenshot review, publisher identity confirmation and store declarations |
 | M9 | Unit/browser tests, native emulator/simulator tests, unsigned candidates, passing hosted CI and manually dispatched signing workflows | Signed candidates, store beta distribution/feedback, production access, publisher review |
 
-Verified so far: **48 Node tests, 22 mobile browser checks, and 2 native iOS UI tests**, deterministic full-campaign checkpoint restoration, browser GL recovery, packaged Android build/pause/OS-kill/Continue, and native iOS interaction/rotation/lifecycle recovery. Exact commands, build hashes, screenshot dimensions, and remaining physical-device gates are recorded in [VALIDATION.md](VALIDATION.md). Local screenshots and native reports are in ignored `artifacts/`; signed-candidate/publisher review remains open.
+Verified so far: **50 Node tests, 11 native file-storage interruption tests, 22 mobile browser checks, and 2 native iOS UI tests**, deterministic full-campaign/extended-endless checkpoint restoration, browser GL recovery, packaged Android build/pause/OS-kill/Continue, and native iOS interaction/rotation/lifecycle recovery. Exact commands, build hashes, screenshot dimensions, and remaining physical-device gates are recorded in [VALIDATION.md](VALIDATION.md). Local screenshots and native reports are in ignored `artifacts/`; distribution signing and publisher review remain open.
+
+Remaining external inputs have these owners and gates:
+
+| Input | Owner | Blocks |
+| --- | --- | --- |
+| Apple Distribution identity/provisioning and Android upload-key custody | Lumiora publisher | M2/M9 signed store candidates; Apple development signing already works |
+| Supported physical iPhone/Android devices, unlocked and available for QA | Publisher supplies devices; engineer runs QA | M3–M7/M9 physical update, input, audio, thermal and performance acceptance |
+| Final contact, audience, privacy/rating/legal/trader and territory answers | Lumiora publisher | M8 store declarations; mainland China remains excluded by the launch plan |
+| Exact-candidate/listing review and TestFlight/Play beta participation | Publisher/testers | M9 beta findings and release approval |
 
 The app minimum is **iOS 15.5**, Android **API 24** with **WebView 102+**, targeting **API 36**. The game needs newer web APIs than Capacitor's iOS 15.0 minimum: [Safari 15.4 added dialogs and Object.hasOwn](https://developer.apple.com/documentation/safari-release-notes/safari-15_4-release-notes), and [Safari 15.5 added inert](https://webkit.org/blog/12669/new-webkit-features-in-safari-15-5/). Current native execution evidence is iOS 26.3 / Android API 36; minimum-version physical testing remains open.
 
