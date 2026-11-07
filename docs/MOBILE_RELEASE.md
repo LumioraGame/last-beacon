@@ -4,12 +4,12 @@ Review of `main` @ 42e7693, 2026-11-06. Baseline: `npm test` 37/37 pass, `npm ru
 
 ## Current implementation status
 
-Implementation is in the working tree under app ID **`ai.lumiora.lastbeacon`**, using the publisher-selected `ai.lumiora` namespace. The original findings below describe the reviewed baseline; checked items have implementation and verification evidence. This is **not yet a signed, store-submitted release**.
+Implementation is on `mobile/release-readiness` ([draft PR #1](https://github.com/LumioraGame/last-beacon/pull/1)) under app ID **`ai.lumiora.lastbeacon`**, using the publisher-selected `ai.lumiora` namespace. The original findings below describe the reviewed baseline; checked items have implementation and verification evidence. This is **not yet a signed, store-submitted release**.
 
 | Package | Current result | Remaining acceptance work |
 | --- | --- | --- |
 | M0 | Baseline reproduced; app ID selected; phone orientations/iPhone-only iOS scope; public support URLs; authenticated organization Play account | Publisher Apple team, signing ownership, legal contact confirmation, physical QA devices |
-| M1 | Separate native bundle, platform adapters, asynchronous bootstrap, release debug flag; static and single-file builds retained | CI execution after changes are pushed |
+| M1 | Separate native bundle, platform adapters, asynchronous bootstrap, release debug flag; static and single-file builds retained | Final PR checks after subsequent changes |
 | M2 | iOS/Android projects compile; app icons/adaptive artwork/splash generated; marketing/build numbers wired | Distribution signing and final store validation |
 | M3 | Native Preferences hydration/migration, ordered verified writes, web fallback implemented and tested | Upgrade verification on physical minimum devices |
 | M4 | Validated versioned snapshots, dual checkpoint slots, Continue/New watch, periodic/event/background saves, terminal markers | Physical OS-kill/update testing; extended real-device endless sessions |
@@ -17,7 +17,7 @@ Implementation is in the working tree under app ID **`ai.lumiora.lastbeacon`**, 
 | M6 | Compact landscape cards/menu, touch wording/selection, native inset handling and zoom policy | Physical cutouts/navigation variants and accessibility enlargement |
 | M7 | Idle draw cap, sustained-load quality downgrade, bounded local diagnostics and review/copy UI | Physical FPS/memory/thermal/battery measurements |
 | M8 | Bilingual policy/support pages published, issue tracker enabled, app privacy manifest, localized listings, icons/feature graphic, 24 packaged gameplay screenshots | Signed-candidate screenshot review, publisher identity confirmation and store declarations |
-| M9 | Unit/browser tests, native emulator/simulator tests, unsigned candidates, CI and manually dispatched signing workflows | Signed candidates, store beta distribution/feedback, production access, publisher review |
+| M9 | Unit/browser tests, native emulator/simulator tests, unsigned candidates, passing hosted CI and manually dispatched signing workflows | Signed candidates, store beta distribution/feedback, production access, publisher review |
 
 Verified so far: **48 Node tests, 22 mobile browser checks, and 2 native iOS UI tests**, deterministic full-campaign checkpoint restoration, browser GL recovery, packaged Android build/pause/OS-kill/Continue, and native iOS interaction/rotation/lifecycle recovery. Exact commands, build hashes, screenshot dimensions, and remaining physical-device gates are recorded in [VALIDATION.md](VALIDATION.md). Local screenshots and native reports are in ignored `artifacts/`; signed-candidate/publisher review remains open.
 
@@ -64,7 +64,7 @@ Legend: **P0** blocks store submission or causes a broken experience, **P1** sho
 - [ ] Haptics are wired on build, wave start, and boss arrival (`@capacitor/haptics`); verify feel/support/settings on physical devices. Optional for v1.
 - [ ] Native page zoom is disabled in Capacitor configuration while retaining custom camera gesture handling. Finish native pinch/camera acceptance. Browser accessibility zoom is retained.
 - [x] Native release build removes game debug access; explicit native debug builds retain it. Browser release and packaged Android checks verify absence.
-- [x] Playwright mobile smoke tests cover both locales, four viewport sizes, real-budget tapping, reload/Continue, storage failure, background/dialog pause ownership, GL recovery, native release behavior, and diagnostics. CI configuration is prepared; hosted CI runs remain pending push.
+- [x] Playwright mobile smoke tests cover both locales, four viewport sizes, real-budget tapping, reload/Continue, storage failure, background/dialog pause ownership, GL recovery, native release behavior, and diagnostics. Hosted game/browser, Android, and iOS CI jobs pass; subsequent changes rerun checks on the draft PR.
 - [ ] Optional: Game Center / Play Games leaderboards for endless-mode records.
 - [x] Prepared store metadata focuses on the game and omits irrelevant AI-tool branding. Apple 2.3.10 specifically restricts other mobile platform / marketplace references and irrelevant information; it is not a blanket ban on AI attribution. Development notes remain in the repo.
 

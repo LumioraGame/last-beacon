@@ -2,6 +2,7 @@ import {execFileSync} from 'node:child_process';
 import {openSync,closeSync} from 'node:fs';
 import {readFile,mkdir,copyFile,readdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
+import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 
 const device=process.env.IOS_SIMULATOR_UDID;
@@ -32,4 +33,7 @@ for(const locale of ['en','zh-Hans'])for(const scene of scenes){
   if(![[1206,2622],[1320,2868]].some(([w,h])=>meta.width===w&&meta.height===h))throw new Error(`Unexpected native screenshot size: ${meta.width}×${meta.height}`);
   captures.push({file,locale,scene:scene.name,width:meta.width,height:meta.height});
 }
-await writeFile(`${output}/manifest.json`,JSON.stringify({device,captures},null,2));
+const bundle='artifacts/ios-store/Build/Products/Debug-iphonesimulator/App.app';
+const build=run('/usr/libexec/PlistBuddy',['-c','Print CFBundleVersion',`${bundle}/Info.plist`]);
+const nativeWebSHA256=createHash('sha256').update(await readFile(`${bundle}/public/app.js`)).digest('hex');
+await writeFile(`${output}/manifest.json`,JSON.stringify({device,appId:app,build,nativeWebSHA256,captures},null,2));

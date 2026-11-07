@@ -1,5 +1,6 @@
 import {execFileSync} from 'node:child_process';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 
 const serial=process.env.ANDROID_SERIAL;if(!serial)throw new Error('Select a dedicated QA device using ANDROID_SERIAL; capture replaces its Last Beacon watch');
@@ -45,7 +46,9 @@ try{
       captures.push({file,locale,format,scene:scene.name,width:meta.width,height:meta.height});console.log(file);
     }
   }
-  await writeFile('artifacts/store-screenshots/android/manifest.json',JSON.stringify({serial,captures},null,2));
+  const build=adb('shell','dumpsys','package',app).match(/versionCode=(\d+)/)?.[1];
+  const nativeWebSHA256=createHash('sha256').update(await readFile('android/app/src/main/assets/public/app.js')).digest('hex');
+  await writeFile('artifacts/store-screenshots/android/manifest.json',JSON.stringify({serial,appId:app,build,nativeWebSHA256,captures},null,2));
 }finally{
   socket?.close();adb('shell','am','force-stop',app);adb('forward','--remove',`tcp:${port}`);
   const size=originalSize.match(/Override size: (\d+x\d+)/)?.[1],density=originalDensity.match(/Override density: (\d+)/)?.[1];

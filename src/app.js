@@ -11,6 +11,7 @@ const write=(key,value)=>{try{storage?.setItem(key,value);}catch{}};
 setLanguage(preferredLanguage(storage,navigator.languages?.length?navigator.languages:[navigator.language]));
 
 const $=id=>document.getElementById(id);
+const touchControls=platform.native||matchMedia('(pointer: coarse)').matches;
 const QUALITIES=['high','medium','low','classic'],BUILD_KEYS=['gun','mortar','frost','relay','arc'];
 function supportsWebGL2(){try{const gl=document.createElement('canvas').getContext('webgl2');gl?.getExtension('WEBGL_lose_context')?.loseContext();return !!gl;}catch{return false;}}
 const webgl=supportsWebGL2();
@@ -107,13 +108,14 @@ function updateQualityButton(){
 function applyLanguage(){
   document.documentElement.lang=getLanguage()==='zh'?'zh-CN':'en';
   for(const element of document.querySelectorAll('[data-i18n]'))element.innerHTML=t(element.dataset.i18n);
-  if(matchMedia('(pointer: coarse)').matches){
+  if(touchControls){
     for(const [key,touch] of [['help.shortcuts','help.touchShortcuts'],['help.beamText','help.beamTouch'],['help.strikeText','help.strikeTouch'],['help.viewText','help.viewTouch']])document.querySelector(`[data-i18n="${key}"]`).textContent=t(touch);
   }
   for(const [attribute,key] of [['aria-label','i18nAria'],['title','i18nTitle'],['content','i18nContent']]){
     const selector={'i18nAria':'data-i18n-aria','i18nTitle':'data-i18n-title','i18nContent':'data-i18n-content'}[key];
     for(const element of document.querySelectorAll(`[${selector}]`))element.setAttribute(attribute,t(element.dataset[key]));
   }
+  if(touchControls)$('battlefield').setAttribute('aria-label',t('map.touchDescription'));
   $('language-toggle').dataset.language=getLanguage();
   $('language-toggle').setAttribute('aria-label',t('language.switch'));
   $('language-toggle').title=t('language.switch');
@@ -394,7 +396,7 @@ function toggleStrike(){
   if(game.phase!=='wave'){toast('toast.strikeWave');return;}
   if(game.strikeCooldown>0){toast('toast.strikeWait',()=>({seconds:Math.ceil(game.strikeCooldown)}));return;}
   if(aiming){fireStrikeAt(hotSpot(STRIKE.radius));return;}
-  closeMenus();aiming=true;buildType=null;renderer.buildType=null;toast('toast.strikeAim');updateHud();
+  closeMenus();aiming=true;buildType=null;renderer.buildType=null;toast(touchControls?'toast.strikeTouchAim':'toast.strikeAim');updateHud();
 }
 function fireStrikeAt(point){
   if(!onMap(point)){toast('toast.strikeMiss');return;}
@@ -693,5 +695,5 @@ addEventListener('pointerdown',()=>{audio.recover().catch(error=>diagnostics.rec
 // Automated browser checks drive the game through this hook; it only exists with ?debug in the URL.
 const debugAllowed=typeof __LAST_BEACON_DEBUG__==='undefined'||__LAST_BEACON_DEBUG__;
 if(debugAllowed&&new URLSearchParams(location.search).has('debug'))window.lastBeacon={get game(){return game;},get renderer(){return renderer;},get platform(){return platform;},checkpoint,back,activatePad,selectType,toggleStrike,fireStrikeAt,aimBeamAt,beamAuto,openMenu,closeMenus};
-if(renderer.kind==='3d'&&!read('last-beacon-camera-hint'))setTimeout(()=>{if(!activeToast&&!coach){toast('toast.cameraHint');write('last-beacon-camera-hint','1');}},9000);
+if(renderer.kind==='3d'&&!read('last-beacon-camera-hint'))setTimeout(()=>{if(!activeToast&&!coach){toast(touchControls?'toast.cameraTouchHint':'toast.cameraHint');write('last-beacon-camera-hint','1');}},9000);
 }
