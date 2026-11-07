@@ -4,19 +4,19 @@ Review of `main` @ 42e7693, 2026-11-06. Baseline: `npm test` 37/37 pass, `npm ru
 
 ## Current implementation status
 
-Implementation is on `mobile/release-readiness` ([draft PR #1](https://github.com/LumioraGame/last-beacon/pull/1)) under app ID **`ai.lumiora.lastbeacon`**, using the publisher-selected `ai.lumiora` namespace. The original findings below describe the reviewed baseline; checked items have implementation and verification evidence. This is **not yet a signed, store-submitted release**.
+Implementation is on `mobile/release-readiness` ([draft PR #1](https://github.com/LumioraGame/last-beacon/pull/1)) under app ID **`ai.lumiora.lastbeacon`**, using the publisher-selected `ai.lumiora` namespace. The English store title is **Last Beacon: Island Defense**; Apple rejected the shorter name as already used. The original findings below describe the reviewed baseline; checked items have implementation and verification evidence. Signed candidates and an Apple draft app record exist; this is **not a reviewed or released app**.
 
 | Package | Current result | Remaining acceptance work |
 | --- | --- | --- |
 | M0 | Baseline reproduced; app ID selected; Apple team N2U5V543PB confirmed; phone orientations/iPhone-only iOS scope; public support URLs; organization Play account | Distribution signing ownership, legal contact confirmation, physical QA devices |
 | M1 | Separate native bundle, platform adapters, asynchronous bootstrap, release debug flag; static and single-file builds retained | Final PR checks after subsequent changes |
-| M2 | iOS/Android projects compile; development-signed iOS build verified; artwork/splash and version stamping wired | Distribution signing and final store validation |
+| M2 | Both platforms compile; development/distribution iOS signing and Android upload signing verified; artwork/splash and version stamping wired | Publisher key backup/custody review and final store validation |
 | M3 | Native Preferences hydration/migration, ordered verified writes, web fallback implemented and tested | Upgrade verification on physical minimum devices |
 | M4 | Validated versioned snapshots, dual checkpoint slots, Continue/New watch, periodic/event/background saves, terminal markers | Physical OS-kill/update testing; extended real-device endless sessions |
 | M5 | Pause ownership, native Back, lifecycle saves, GL restore/2D recovery, audio recovery and ambient iOS category | Silent switch, calls/Siri, headphones, repeated real-device memory pressure |
 | M6 | Compact landscape cards/menu, touch wording/selection, native inset handling and zoom policy | Physical cutouts/navigation variants and accessibility enlargement |
 | M7 | Idle draw cap, sustained-load quality downgrade, bounded local diagnostics and review/copy UI | Physical FPS/memory/thermal/battery measurements |
-| M8 | Bilingual policy/support pages published, issue tracker enabled, app privacy manifest, localized listings, icons/feature graphic, 24 packaged gameplay screenshots | Signed-candidate screenshot review, publisher identity confirmation and store declarations |
+| M8 | Policy/support published; privacy manifest and license notices bundled; Apple app 6831920904 created; bilingual metadata saved; icons/feature graphic and 24 gameplay screenshots | Screenshot-slot uploads, privacy/rating/contact/territory completion and publisher review |
 | M9 | Unit/browser tests, native emulator/simulator tests, unsigned candidates, passing hosted CI and manually dispatched signing workflows | Signed candidates, store beta distribution/feedback, production access, publisher review |
 
 Verified so far: **50 Node tests, 11 native file-storage interruption tests, 22 mobile browser checks, and 2 native iOS UI tests**, deterministic full-campaign/extended-endless checkpoint restoration, browser GL recovery, packaged Android build/pause/OS-kill/Continue, and native iOS interaction/rotation/lifecycle recovery. Exact commands, build hashes, screenshot dimensions, and remaining physical-device gates are recorded in [VALIDATION.md](VALIDATION.md). Local screenshots and native reports are in ignored `artifacts/`; distribution signing and publisher review remain open.
@@ -25,14 +25,14 @@ Remaining external inputs have these owners and gates:
 
 | Input | Owner | Blocks |
 | --- | --- | --- |
-| Apple Distribution identity/provisioning and Android upload-key custody | Lumiora publisher | M2/M9 signed store candidates; Apple development signing already works |
+| Backup/recovery review for Xcode-managed Apple signing and the app-specific Android upload key | Lumiora publisher | M2/M9 release ownership; both signed candidates now exist |
 | Supported physical iPhone/Android devices, unlocked and available for QA | Publisher supplies devices; engineer runs QA | M3–M7/M9 physical update, input, audio, thermal and performance acceptance |
 | Final contact, audience, privacy/rating/legal/trader and territory answers | Lumiora publisher | M8 store declarations; mainland China remains excluded by the launch plan |
 | Exact-candidate/listing review and TestFlight/Play beta participation | Publisher/testers | M9 beta findings and release approval |
 
 The app minimum is **iOS 15.5**, Android **API 24** with **WebView 102+**, targeting **API 36**. The game needs newer web APIs than Capacitor's iOS 15.0 minimum: [Safari 15.4 added dialogs and Object.hasOwn](https://developer.apple.com/documentation/safari-release-notes/safari-15_4-release-notes), and [Safari 15.5 added inert](https://webkit.org/blog/12669/new-webkit-features-in-safari-15-5/). Current native execution evidence is iOS 26.3 / Android API 36; minimum-version physical testing remains open.
 
-Published and checked against the local source: [privacy policy](https://lumioragame.github.io/last-beacon/privacy.html), [support page](https://lumioragame.github.io/last-beacon/support.html). The publication uses only the separate `mobile-policy-pages` branch; [deployment run](https://github.com/LumioraGame/last-beacon/actions/runs/42335045481) succeeded. The working contact is the [current repository issue tracker](https://github.com/LumioraGame/last-beacon/issues), enabled for this fork. No store registration, listing submission, or app release has been performed.
+Published and checked against the local source: [privacy policy](https://lumioragame.github.io/last-beacon/privacy.html), [support page](https://lumioragame.github.io/last-beacon/support.html). The publication uses only the separate `mobile-policy-pages` branch; [deployment run](https://github.com/LumioraGame/last-beacon/actions/runs/42335045481) succeeded. The working contact is the [current repository issue tracker](https://github.com/LumioraGame/last-beacon/issues), enabled for this fork. Apple app **6831920904** is a draft with bilingual metadata; no review submission or app release has occurred.
 
 What's already in good shape: fully offline static build (`dist/`, no CDN or backend, which suits a Capacitor `webDir`), `viewport-fit=cover` plus `env(safe-area-inset-*)`, pointer events with `touch-action`, auto-pause and audio suspend on `visibilitychange`, a 2D fallback when WebGL2 is missing, a medium-quality default on touch devices, reduced-motion support, and a bilingual UI.
 
@@ -40,7 +40,7 @@ Legend: **P0** blocks store submission or causes a broken experience, **P1** sho
 
 ## P0: blockers
 
-- [ ] **Native distribution setup remains open.** Both native projects, `ai.lumiora.lastbeacon`, version stamping, and unsigned/debug build paths now exist. Apple distribution signing, Android upload-key ownership, and store-account setup remain external inputs.
+- [ ] **Native distribution setup remains open.** Both native projects, `ai.lumiora.lastbeacon`, version stamping, signed IPA/AAB, and Apple draft app record now exist. Play app setup, beta distribution and publisher release review remain open.
   Fix: add Capacitor with a bundled native web build, pick an app ID, and use `version` for marketing and CI for `CFBundleVersion`/`versionCode`. Do not point the release app at the live URL. Apple 4.2 assesses functionality and lasting value; bundling alone does not guarantee approval. See implementation work packages M1–M2 below.
 - [x] **App icons and splash sources.** Generated from the existing beacon mark, including verified RGB iOS/store icons, Android adaptive foreground/background and monochrome artwork, native splash assets, and the Play feature graphic. See `assets/mobile/` and `npm run mobile:assets`.
   Fix: a 1024×1024 iOS icon (no alpha), an Android adaptive icon (foreground and background), and a splash. `@capacitor/assets` can generate them.

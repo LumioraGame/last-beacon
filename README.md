@@ -155,6 +155,10 @@ IOS_SIMULATOR_UDID=YOUR_QA_SIMULATOR IOS_SCREENSHOT_CLASS=iphone-large npm run s
 
 隐私与支持页面源文件位于 `legal/`，随静态站点构建，并已通过独立的 `mobile-policy-pages` 分支发布：[隐私政策](https://lumioragame.github.io/last-beacon/privacy.html)、[支持](https://lumioragame.github.io/last-beacon/support.html)。商店声明仍需由发行者完成。商店文案与外部输入清单见 [docs/store/LISTINGS.md](docs/store/LISTINGS.md)。签名密钥、证书、Apple Team 与商店账号由发行者管理，不提交到仓库。Android 发布签名可通过 `LAST_BEACON_KEYSTORE`、`LAST_BEACON_STORE_PASSWORD`、`LAST_BEACON_KEY_ALIAS`、`LAST_BEACON_KEY_PASSWORD` 提供；未配置时只生成未签名的发布候选包。
 
+本机已为此应用创建独立的 Android 上传密钥，位于 `~/Library/Application Support/Lumiora/Signing/ai.lumiora.lastbeacon/upload.p12`；密码保存在 macOS Keychain 的 `ai.lumiora.lastbeacon.android-upload` 服务、`last-beacon-upload` 账号下。`JAVA_HOME` 指向 Java 21，Android SDK 环境就绪后，运行 `swift scripts/sign-android-local.swift` 会重建正式网页资源、同步 Android、读取该密钥并签名 AAB。首次在新环境创建密钥必须显式加 `--create-key`；脚本不会替换已有密钥。密钥与 Keychain 的恢复备份由发行者保管，不把私钥提交到仓库或公开附件。
+
+原生资源包含游戏、Three.js、Capacitor/插件及原生依赖的许可证；单文件版也内嵌游戏和 Three.js 的完整声明。`mobile:verify` 对比全部原生网页资源（含许可证、样式和政策），并检查归档隐私清单。完整签名证据及候选包位置见发布记录。
+
 ## 文件结构
 
 ```text

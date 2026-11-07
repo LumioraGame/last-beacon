@@ -1,12 +1,14 @@
 # Last Beacon store materials
 
-App ID / Android package: `ai.lumiora.lastbeacon`. Publisher selected the `ai.lumiora` namespace; the app name remains **Last Beacon / 最后的灯塔**. First release is free, offline, and has no accounts, advertising, or in-app purchases. Marketing version comes from `package.json`; build numbers come from `npm run mobile:version` or `MOBILE_BUILD_NUMBER`.
+App ID / Android package: `ai.lumiora.lastbeacon`. Publisher selected the `ai.lumiora` namespace. The English store name is **Last Beacon: Island Defense**, with **最后的灯塔** for Simplified Chinese. Apple's console rejected the shorter English name as already used. The in-game name remains Last Beacon. First release is free, offline, and has no accounts, advertising, or in-app purchases. Marketing version comes from `package.json`; build numbers come from `npm run mobile:version` or `MOBILE_BUILD_NUMBER`.
+
+Apple app record: **6831920904**, [App Store Connect](https://appstoreconnect.apple.com/apps/6831920904/distribution/ios/version/inflight), version **1.0.0 / Prepare for Submission**. English and Simplified Chinese descriptions, keywords, promotional text, support URL, names/subtitles, Games/Strategy category and review notes are saved as drafts. No sign-in is required; release mode is manual. Ratings, privacy declarations, review contact, availability and screenshot association still need completion/verification before submission.
 
 ## English
 
-App name: **Last Beacon**
+App name: **Last Beacon: Island Defense**
 
-App Store subtitle: **Build. Connect. Keep the light.**
+App Store subtitle: **Build. Connect. Keep the light**
 
 Play short description: **Connect your defenses and guide the light through a coastal tower defense.**
 
@@ -73,4 +75,4 @@ The game runs entirely from assets bundled with the app and requires no account,
 - Exclude mainland China at launch without the required game approvals. Retain Simplified Chinese elsewhere.
 - iOS device family is iPhone for v1, minimum iOS 15.5. Android minimum API 24, target API 36; test actual supported minimum devices before making compatibility claims.
 - Native source artwork and generated icon/feature-graphic assets are in `assets/mobile/`. Packaged-app screenshots are in `artifacts/store-screenshots/`, with a manifest per platform/device class. English and zh-Hans each show connected building, night combat, and the boss: iPhone 1206×2622 / 1320×2868, Android phone 1080×1920 and tablet 1600×2560. See `docs/VALIDATION.md` for candidate provenance and the README capture commands. These are simulator/emulator screenshots; inspect them against the exact signed candidate and current console requirements before uploading.
-- Apple team **N2U5V543PB / Lumiora Labs Inc.** is confirmed from the local development certificate and a successfully verified development-signed build. Apple distribution signing, Android upload-key custody, legal/trader declarations, and applicable store beta/production access remain publisher inputs. No store registration, submission, or release has been performed by these changes.
+- Apple team **N2U5V543PB / Lumiora Labs Inc.** is confirmed. Xcode automatic provisioning successfully registered the explicit Bundle ID and exported an Apple Distribution-signed IPA; Android has a separate local upload key and signed AAB. Key custody and current hashes are in `docs/VALIDATION.md`. The Apple draft app record is created; no review submission or app release has occurred. Publisher declarations, review contact, physical QA and store beta gates remain open.

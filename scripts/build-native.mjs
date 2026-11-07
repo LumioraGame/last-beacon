@@ -20,4 +20,10 @@ await writeFile(new URL('index.html',out),html);
 await cp(new URL('src/style.css',root),new URL('style.css',out));
 await cp(new URL('favicon.svg',root),new URL('favicon.svg',out));
 await cp(new URL('legal/',root),new URL('legal/',out),{recursive:true});
+await cp(new URL('assets/licenses/',root),new URL('licenses/',out),{recursive:true});
+await cp(new URL('LICENSE',root),new URL('licenses/last-beacon.txt',out));
+await cp(new URL('vendor/THREE-LICENSE.txt',root),new URL('licenses/three.txt',out));
+for(const name of ['core','android','ios','app','filesystem','haptics','preferences']){
+  await cp(new URL(`node_modules/@capacitor/${name}/LICENSE`,root),new URL(`licenses/capacitor-${name}.txt`,out));
+}
 console.log(`Built native ${debug ? 'debug' : 'release'} assets (${version}) in dist-native/`);
