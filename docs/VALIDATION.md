@@ -336,3 +336,24 @@ The Android work exposed a QA race: the fixed 1.2-second sleep could read the pr
 Android remote-debugger screenshots omitted the canvas and distorted parts of the UI on this emulator. A native `screencap` taken alongside the remote capture shows the rendered 2D island and defenses; canvas readback also contains terrain colors. The smoke helper now captures the actual device screen, as the store-capture helper already does. Comparison images are `artifacts/android-upgrade/visual-native.png` and `visual-cdp.png`; the old remote images are not visual proof of a blank game.
 
 These are simulator/emulator debug-shell update checks with release game assets. They do not establish physical minimum-device performance, audio behavior, or TestFlight/Google Play generated-package update behavior. The signed IPA/AAB checksums remain unchanged and expanded artifact verification still passes.
+
+## 2026-11-07 · Touch coaching fix and candidate 1794024485
+
+Native visual inspection found a remaining onboarding instruction telling phone users to press **B**. Touch/native beam coaching now points to the visible Beam button; its hint says Tap rather than Click, and beam/log accessibility labels omit keyboard suffixes. Both English/Chinese native-bundle regressions activate the actual Beam button; a desktop regression retains keyboard guidance. No gameplay, save schema, dependencies or permissions changed.
+
+Candidate **1.0.0 (1794024485)**, source **8d98a4d**, passes **50 Node tests, 11 native-storage fault tests and 25 browser checks**. All three [hosted readiness jobs](https://github.com/LumioraGame/last-beacon/actions/runs/42363285603) pass. Android native smoke upgrades the installed QA build **4484 → 4485**, verifying unchanged Preferences/checkpoints and paused Continue with 115 parts, Back/help and landscape bounds (`artifacts/android-upgrade-1794024485/`). iOS now runs **both** original MobileSmoke tests before updating **4485 → QA-only 4486**, followed by the separate UpgradeCheck test; all three pass (`artifacts/ios-upgrade-1794024485/`). The source native version and store candidate remain 4485.
+
+Both candidates are signed with the established identities. Strict/deep iOS signature verification passes; the exported app is `N2U5V543PB.ai.lumiora.lastbeacon`, debugging disabled, beta reports enabled. Android signature verification and bundletool validation pass, the upload certificate matches its pinned fingerprint, and the packaged manifest is build 4485 / target API 36 / debugging disabled. All **20 web assets** match, with zero Android `.so` files.
+
+| Current signed artifact | SHA-256 |
+| --- | --- |
+| `artifacts/ios-distribution-1794024485/export/App.ipa` | `5ecd165c134e88b229f754e316d62d789b36e16e71a180f9d5b79f4cb0710c9a` |
+| `android/app/build/outputs/bundle/release/app-release.aab` | `ab85315e01448549e62184b6962deffcaf82bc6e892757d781256d766114cbb7` |
+| Game JavaScript | `0ac287fde56bbff93607550d652c8966738ceca230ffef13f4fb2bba1293cba2` |
+| All bundled web assets | `4b3d11a4c3da424ebae7b8d13b496eb22cfa521fd24ab1f26b2605016502b8fe` |
+
+Xcode successfully uploaded **4485** and reported **Uploaded package is processing**. The browser then redirected to App Store Connect sign-in, so Ready to Test status, current-version build association and current screenshot association are not yet verified. The user has been asked to restore sign-in in the existing Chrome profile. Before that redirect, the existing **Last Beacon QA** group showed **1 internal tester / Invited / no sessions**, added externally; this agent did not send an invitation. The previous 4483 build remains the last verified version/group association.
+
+The prior signed AAB/report are retained in `artifacts/release-1.0.0-1794024483/`; its IPA remains in the earlier distribution directory. **All 24 screenshots were recaptured from build 1794024485** and checked for dimensions, opaque PNG format and matching native web hash. English/zh-Hans each include connected-defense, night-watch and boss scenes at iPhone 1206×2622 / 1320×2868 and Android 1080×1920 / 1600×2560. Current iOS folders have the `-1794024485` suffix; `artifacts/store-screenshots/candidate.json` records every image hash and source 8d98a4d, and `index.html` is the review gallery. Capture sessions completed and the dedicated simulators/emulator were shut down afterward. These current captures are prepared locally; the previously associated Apple screenshots remain the last verified console state.
+
+Publisher declarations, review contact, physical-device acceptance and store beta feedback remain open; no review submission or public release occurred.
