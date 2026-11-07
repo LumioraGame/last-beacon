@@ -1,0 +1,13 @@
+{
+  "appId": "ai.lumiora.lastbeacon",
+  "appName": "Last Beacon",
+  "webDir": "dist-native",
+  "backgroundColor": "#10201f",
+  "loggingBehavior": "debug",
+  "zoomEnabled": false,
+  "android": {"webContentsDebuggingEnabled": false, "minWebViewVersion": 102},
+  "ios": {"preferredContentMode": "mobile"},
+  "plugins": {
+    "SystemBars": {"insetsHandling": "css", "initialViewportFitValueHint": "cover", "style": "DARK"}
+  }
+}

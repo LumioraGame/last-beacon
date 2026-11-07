@@ -3,9 +3,9 @@ import {Renderer,drawTowerIcon} from './render.js';
 import {World3D,renderTowerIcons} from './3d/world.js';
 import {AudioEngine} from './audio.js';
 import {getLanguage,setLanguage,preferredLanguage,saveLanguage,t,towerName} from './i18n.js';
+import {createPauseState,bindLifecycle} from './lifecycle.js';
 
-let storage;
-try { storage=localStorage; } catch {}
+export function startApp({platform,storage,runs,saved,diagnostics}) {
 const read=key=>{try{return storage?.getItem(key)??null;}catch{return null;}};
 const write=(key,value)=>{try{storage?.setItem(key,value);}catch{}};
 setLanguage(preferredLanguage(storage,navigator.languages?.length?navigator.languages:[navigator.language]));
@@ -20,7 +20,14 @@ let difficulty=Object.hasOwn(DIFFICULTIES,read('last-beacon-difficulty'))?read('
 
 const audio=new AudioEngine();
 let canvas=$('battlefield'),game=new Game({difficulty}),renderer=null,buildType=null,selectedPad=null,hoverPad=null,gridOn=true,aiming=false;
-let previous=performance.now(),lastHud=0,lastLog='',lastMenu='',toastTimer,bannerTimer,pauseBeforeDialog=false,bossShown=null,shownCredits=game.credits;
+let previous=performance.now(),lastHud=0,lastLog='',lastMenu='',toastTimer,bannerTimer,bossShown=null,shownCredits=game.credits;
+let runId=crypto.randomUUID?.()||String(Date.now()),pendingContinue=saved.checkpoint?.status==='active'?saved.checkpoint:null;
+let started=!pendingContinue&&!saved.blocked,saveTimer,lastCheckpoint=performance.now(),frameId=0,lastDraw=0,contextLost=false,disposing=false,recoveryTimer,fatal=false;
+let saveFailed=!!saved.error||!!storage.error,replacing=false,autoQualityAt=performance.now()+10000,slowFrames=[];
+let contextLosses=[];
+const pauses=createPauseState(paused=>{game.paused=paused;});
+if(!started)pauses.set('startup',true);
+diagnostics.context.quality=quality;
 const records=Object.fromEntries(Object.keys(DIFFICULTIES).map(d=>[d,{wave:0,won:false,endless:0}]));
 try{
   const stored=JSON.parse(read('last-beacon-best')||'null');
@@ -54,6 +61,45 @@ function updateSoundButton(){
   $('sound').querySelector('.mute-slash').hidden=audio.enabled;
   $('sound').setAttribute('aria-label',label);$('sound').title=label+' [M]';
 }
+function updateSaveWarning(){ $('save-warning').hidden=!saveFailed; }
+storage.onError=()=>{saveFailed=true;updateSaveWarning();};
+function scheduleCheckpoint(){if(!started||runs.blocked)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>checkpoint(),400);}
+async function checkpoint(){
+  if(!started||runs.blocked||replacing)return;
+  clearTimeout(saveTimer);lastCheckpoint=performance.now();
+  try{await runs.save(game,runId);await storage.flush();saveFailed=false;}
+  catch(error){saveFailed=true;diagnostics.record(error,'checkpoint');}
+  updateSaveWarning();
+}
+function fail(){
+  if(fatal)return;fatal=true;pauses.set('fatal',true);audio.setHidden(true);cancelAnimationFrame(frameId);
+  if(!$('error-dialog').open)$('error-dialog').showModal();
+}
+diagnostics.onFatal(fail);
+$('reload-app').addEventListener('click',()=>location.reload());
+async function exportDiagnostics(){
+  const text=await diagnostics.export();
+  if(platform.native){$('diagnostics-text').value=text;openDialog('diagnostics-dialog');return;}
+  if(navigator.share){try{await navigator.share({title:'Last Beacon diagnostics',text});return;}catch(error){if(error.name==='AbortError')return;}}
+  try{await navigator.clipboard.writeText(text);toast('support.copied');}
+  catch{const blob=new Blob([text],{type:'application/json'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='last-beacon-diagnostics.json';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);}
+}
+$('error-support').addEventListener('click',()=>exportDiagnostics().catch(error=>diagnostics.record(error,'support')));
+$('share-diagnostics').addEventListener('click',()=>exportDiagnostics().catch(error=>diagnostics.record(error,'support')));
+function showLegal(privacy){
+  $('legal-title').textContent=t(privacy?'support.privacy':'support.help');$('legal-copy').textContent=t(privacy?'support.policyCopy':'support.helpCopy');
+  const link=document.createElement('a');link.href=privacy?'https://lumioragame.github.io/last-beacon/privacy.html':'https://github.com/LumioraGame/last-beacon/issues';
+  link.textContent=t(privacy?'support.fullPolicy':'support.contact');link.target='_blank';link.rel='noopener noreferrer';$('legal-copy').append(link);openDialog('legal-dialog');
+}
+$('open-privacy').addEventListener('click',()=>showLegal(true));
+$('open-support').addEventListener('click',()=>showLegal(false));
+$('close-legal').addEventListener('click',()=>closeDialog('legal-dialog'));
+$('close-diagnostics').addEventListener('click',()=>closeDialog('diagnostics-dialog'));
+$('copy-diagnostics').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText($('diagnostics-text').value);toast('support.copied');}
+  catch{$('diagnostics-text').focus();$('diagnostics-text').select();}
+});
+$('retry-save').addEventListener('click',()=>{if(!started)location.reload();else checkpoint();});
 function updateQualityButton(){
   $('quality-value').textContent=t(`quality.${quality}`);
   $('camera-reset').hidden=renderer?.kind!=='3d';
@@ -61,6 +107,9 @@ function updateQualityButton(){
 function applyLanguage(){
   document.documentElement.lang=getLanguage()==='zh'?'zh-CN':'en';
   for(const element of document.querySelectorAll('[data-i18n]'))element.innerHTML=t(element.dataset.i18n);
+  if(matchMedia('(pointer: coarse)').matches){
+    for(const [key,touch] of [['help.shortcuts','help.touchShortcuts'],['help.beamText','help.beamTouch'],['help.strikeText','help.strikeTouch'],['help.viewText','help.viewTouch']])document.querySelector(`[data-i18n="${key}"]`).textContent=t(touch);
+  }
   for(const [attribute,key] of [['aria-label','i18nAria'],['title','i18nTitle'],['content','i18nContent']]){
     const selector={'i18nAria':'data-i18n-aria','i18nTitle':'data-i18n-title','i18nContent':'data-i18n-content'}[key];
     for(const element of document.querySelectorAll(`[${selector}]`))element.setAttribute(attribute,t(element.dataset[key]));
@@ -89,7 +138,18 @@ const local=event=>{const r=canvas.getBoundingClientRect();return [event.clientX
 const groundAt=event=>renderer.pickGround(...local(event));
 const onMap=point=>point&&canStrikeAt(point.x,point.y)?point:null;
 function bindCanvas(){
-  canvas.addEventListener('mapresize',()=>{positionPads();positionOverlays();});
+  canvas.addEventListener('webglcontextlost',event=>{
+    if(disposing||event.target!==canvas||renderer?.kind!=='3d')return;
+    event.preventDefault();contextLost=true;pauses.set('recovery',true);pauses.set('user',true);
+    const now=performance.now();contextLosses=contextLosses.filter(at=>now-at<60000);contextLosses.push(now);
+    cancelAim();toast('toast.contextLost');updateHud();
+    clearTimeout(recoveryTimer);recoveryTimer=setTimeout(()=>recoverRenderer(true),contextLosses.length>1?0:3000);
+  });
+  canvas.addEventListener('webglcontextrestored',event=>{
+    // Let Three.js reset its context caches before disposing resources from the old context.
+    queueMicrotask(()=>{if(event.target===canvas&&contextLost&&!disposing)recoverRenderer(contextLosses.length>1);});
+  });
+  canvas.addEventListener('mapresize',()=>{if(renderer){positionPads();positionOverlays();}});
   canvas.addEventListener('pointermove',event=>{
     const [x,y]=local(event);
     if(aiming){renderer.aim=onMap(renderer.pickGround(x,y));canvas.style.cursor='crosshair';hoverPad=null;renderer.hover=null;return;}
@@ -112,15 +172,24 @@ function bindCanvas(){
 function freshCanvas(){const next=canvas.cloneNode(false);canvas.replaceWith(next);canvas=next;bindCanvas();return next;}
 function createRenderer(){
   const view=renderer?.rig?.snapshot();
-  renderer?.dispose?.();renderer=null;
+  disposing=true;renderer?.dispose?.();renderer=null;
   if(quality!=='classic'){
     try{renderer=new World3D(freshCanvas(),game,{quality,view,insets});renderer.onSound=(kind,options)=>audio.play(kind,options);}
     catch(error){console.warn('3D view unavailable, using 2D.',error);quality='classic';toast('toast.webglFallback');}
   }
   if(!renderer)renderer=new Renderer(freshCanvas(),game,{insets});
+  disposing=false;contextLost=false;clearTimeout(recoveryTimer);autoQualityAt=performance.now()+10000;slowFrames=[];
   Object.assign(renderer,{hover:hoverPad,selected:selectedPad,buildType,grid:gridOn,aim:null,highlight:null});
   document.querySelector('.game-shell').classList.toggle('three-d',renderer.kind==='3d');
   padPositions.length=0;positionPads();updateQualityButton();
+  diagnostics.context.quality=quality;
+  pauses.set('recovery',false);
+}
+function recoverRenderer(fallback){
+  if(!contextLost)return;
+  if(fallback)quality='classic';
+  try{createRenderer();drawIcons();pauses.set('recovery',false);toast(fallback?'toast.webglFallback':'toast.contextRestored');updateHud();}
+  catch(error){diagnostics.record(error,'renderer');contextLost=true;if(!fallback){quality='classic';recoverRenderer(true);}else fail();}
 }
 function drawIcons(){
   const icons=[...document.querySelectorAll('.build-card [data-icon]')];
@@ -134,7 +203,9 @@ function drawIcons(){
 let insets={top:0,right:0,bottom:0,left:0};
 // Small HUD changes (an extra line of enemy names) are ignored so the island does not jump between waves.
 function updateInsets(force=false){
-  const w=innerWidth,h=innerHeight,top=Math.max(...[...document.querySelectorAll('.wave-card,.resources')].map(e=>e.getBoundingClientRect().bottom));
+  const w=innerWidth,h=innerHeight,hudTop=Math.max(...[...document.querySelectorAll('.wave-card,.resources')].map(e=>e.getBoundingClientRect().bottom));
+  document.querySelector('.game-shell').style.setProperty('--hud-top-edge',`${Math.round(hudTop)}px`);
+  const top=Math.max(hudTop,$('boss-bar').hidden?0:$('boss-bar').getBoundingClientRect().bottom);
   const bottom=h-Math.min(...[...document.querySelectorAll('.build-bar,.actions')].map(e=>e.getBoundingClientRect().top));
   const next={top:Math.round(Math.min(h*.35,top+6)),bottom:Math.round(Math.min(h*.4,bottom+6)),left:Math.round(Math.min(w*.1,16)),right:Math.round(Math.min(w*.1,16))};
   if(!Object.keys(next).some(k=>Math.abs(next[k]-insets[k])>=(force?1:24)))return;
@@ -144,13 +215,22 @@ new ResizeObserver(()=>updateInsets()).observe(document.querySelector('.hud-top'
 new ResizeObserver(()=>updateInsets()).observe(document.querySelector('.hud-bottom'));
 addEventListener('resize',()=>updateInsets(true));
 
-function reset(){
-  pauseBeforeDialog=false;
+async function reset(){
+  if(replacing)return;replacing=true;pauses.set('replacement',true);
+  const replacement=new Game({difficulty}),replacementId=crypto.randomUUID?.()||String(Date.now());
+  try{
+    clearTimeout(saveTimer);
+    if(runs.blocked)await runs.discard();
+    await runs.save(replacement,replacementId);await storage.flush();
+  }catch(error){replacing=false;pauses.set('replacement',false);saveFailed=true;updateSaveWarning();diagnostics.record(error,'new-run');return;}
+  replacing=false;
+  pauses.reset();started=true;pendingContinue=null;
   for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
-  game=new Game({difficulty});renderer.setGame(game);buildType=null;hoverPad=null;cancelAim();closeMenus();shownCredits=game.credits;
+  game=replacement;renderer.setGame(game);buildType=null;hoverPad=null;cancelAim();closeMenus();shownCredits=game.credits;
   renderer.hover=null;renderer.buildType=null;
   clearTimeout(toastTimer);clearTimeout(bannerTimer);$('toast').classList.remove('visible');$('wave-banner').classList.remove('show');
   activeToast=null;activeBanner=null;$('toast').textContent='';$('wave-banner').textContent='';
+  runId=replacementId;saveFailed=false;updateSaveWarning();lastCheckpoint=performance.now();
   $('speed').textContent='1×';$('paused-label').hidden=true;lastLog='';updateHud();
   if(difficulty==='normal')toast('toast.reset');else toast('toast.difficulty',()=>({level:t(`difficulty.${difficulty}`)}));
 }
@@ -179,7 +259,13 @@ function buildAt(type,id){
 const padButtons=PADS.map(p=>{
   const button=document.createElement('button');button.type='button';button.className='pad-control';button.dataset.pad=p.id;button.title=t('pad.title',{number:String(p.id+1).padStart(2,'0')});
   // While aiming a strike a pad is just a spot on the map: a pointer click aims where it lands, keyboard activation aims at the pad.
-  button.addEventListener('click',event=>{if(aiming){fireStrikeAt(event.detail?groundAt(event):p);return;}activatePad(p.id,!event.detail);});
+  button.addEventListener('click',event=>{
+    if(aiming){fireStrikeAt(event.detail?groundAt(event):p);return;}
+    // Large touch targets can overlap in short 2D views. Resolve physical taps by nearest pad center.
+    const [x,y]=event.detail?local(event):[0,0];
+    const id=event.detail?PADS.reduce((best,pad)=>{const a=padPositions[pad.id],b=padPositions[best];return a&&b&&Math.hypot(a.x-x,(a.y-y)*1.65)<Math.hypot(b.x-x,(b.y-y)*1.65)?pad.id:best;},p.id):p.id;
+    activatePad(id,!event.detail);
+  });
   button.addEventListener('pointermove',event=>{if(aiming)renderer.aim=onMap(groundAt(event));});
   const focus=()=>{if(aiming){renderer.aim=p;return;}hoverPad=p.id;renderer.hover=p.id;};
   button.addEventListener('pointerenter',focus);button.addEventListener('focus',focus);
@@ -316,9 +402,9 @@ function fireStrikeAt(point){
   else if(game.paused)toast('phase.paused');
   updateHud();
 }
-function pause(){if(!game.canEdit())return;game.paused=!game.paused;if(game.paused)cancelAim();updateHud();}
+function pause(){if(!game.canEdit()||document.hidden||contextLost||!started)return;if(game.paused)pauses.resume();else pauses.set('user',true);if(game.paused)cancelAim();updateHud();scheduleCheckpoint();}
 function nextWave(){
-  if(game.phase==='build'){game.startWave();buildType=null;renderer.buildType=null;closeMenus();persistBest();updateHud();}
+  if(game.phase==='build'&&started){pauses.resume();game.startWave();buildType=null;renderer.buildType=null;closeMenus();persistBest();updateHud();checkpoint();}
   else if(game.phase==='wave')pause();
   else $('result-dialog').showModal();
 }
@@ -345,9 +431,9 @@ $('log-toggle').addEventListener('click',()=>setLog($('log').hidden));
 $('log-close').addEventListener('click',()=>setLog(false));
 function closeSystemMenu(){$('system-menu').classList.remove('open');$('menu-toggle').setAttribute('aria-expanded','false');}
 $('menu-toggle').addEventListener('click',()=>{const open=!$('system-menu').classList.contains('open');$('system-menu').classList.toggle('open',open);$('menu-toggle').setAttribute('aria-expanded',String(open));});
-function openDialog(id){pauseBeforeDialog=game.paused;game.paused=true;cancelAim();closeSystemMenu();$(id).showModal();updateHud();}
-function closeDialog(id){$(id).close();}
-for(const id of ['help-dialog','restart-dialog'])$(id).addEventListener('close',()=>{game.paused=pauseBeforeDialog;updateHud();});
+function openDialog(id){pauses.set(`dialog:${id}`,true);cancelAim();closeSystemMenu();$(id).showModal();updateHud();}
+function closeDialog(id){$(id).close();pauses.set(`dialog:${id}`,false);updateHud();}
+for(const dialog of document.querySelectorAll('dialog'))dialog.addEventListener('close',()=>{pauses.set(`dialog:${dialog.id}`,false);updateHud();});
 $('help').addEventListener('click',()=>openDialog('help-dialog'));
 document.querySelector('.close-dialog').addEventListener('click',()=>closeDialog('help-dialog'));
 document.querySelector('.close-help').addEventListener('click',()=>closeDialog('help-dialog'));
@@ -387,7 +473,6 @@ document.addEventListener('keydown',e=>{
   else if(key==='u'){const tower=selectedPad!==null&&towerAt(selectedPad);if(tower&&tower.type!=='relay')upgradeTower(tower);}
   else if(key==='t'){const tower=selectedPad!==null&&towerAt(selectedPad);if(tower&&game.cycleTargeting(tower.id))announceTarget(tower);}
 });
-document.addEventListener('visibilitychange',()=>{audio.setHidden(document.hidden);if(document.hidden&&game.phase==='wave'&&!game.paused){game.paused=true;cancelAim();updateHud();}});
 function announceTarget(tower){toast('toast.target',()=>({name:towerName(tower.type),mode:t(`target.${tower.target}`)}));updateHud();}
 
 // ————— First-watch guidance, anchored to the island or to the HUD —————
@@ -494,7 +579,7 @@ function updateHud(){
   $('phase-tag').innerHTML=`<i></i> ${t(game.paused?'phase.paused':`phase.${game.phase}`)}`;
   $('paused-label').hidden=!game.paused||!game.canEdit()||!!document.querySelector('dialog[open]');
   $('pause').textContent=game.paused?'▷':'Ⅱ';$('pause').setAttribute('aria-label',t(game.paused?'control.resume':'control.pause'));$('pause').disabled=!game.canEdit();
-  for(const card of cards){card.classList.toggle('selected',card.dataset.type===buildType);card.setAttribute('aria-pressed',String(card.dataset.type===buildType));card.classList.toggle('unaffordable',game.credits<TYPES[card.dataset.type].cost);card.disabled=!game.canEdit();}
+  for(const card of cards){card.classList.toggle('selected',card.dataset.type===buildType);card.setAttribute('aria-pressed',String(card.dataset.type===buildType));card.setAttribute('aria-label',`${towerName(card.dataset.type)} · ${TYPES[card.dataset.type].cost}`);card.classList.toggle('unaffordable',game.credits<TYPES[card.dataset.type].cost);card.disabled=!game.canEdit();}
   $('build-hint').textContent=buildType?t('build.selected',{name:towerName(buildType)}):t('build.hint');
   PADS.forEach((pad,i)=>{
     const tower=towerAt(pad.id),title=t('pad.title',{number:String(pad.id+1).padStart(2,'0')});
@@ -523,30 +608,90 @@ function hear(e){
 }
 function handleEvents(){
   for(const e of game.events){
+    if(['build','upgrade','sell','target','grid','wave','clear','strike','beam','beamLift','overdrive','endless'].includes(e.type))scheduleCheckpoint();
+    if(['build','wave','boss'].includes(e.type))void platform.haptic(e.type);
     audio.play(e.type,{kind:e.kind,enemyType:e.enemyType,by:e.by,...hear(e)});
     renderer.onEvent(e);
     if(e.type==='wave'){const endless=e.wave>10,night=isNightWave(e.wave);banner(endless?'wave.endless':`wave.${e.wave}`,night?(endless?'banner.waveEndlessNight':'banner.waveNight'):endless?'banner.waveEndless':'banner.wave',{wave:String(e.wave).padStart(2,'0')},night);}
     if(e.type==='clear'){toast('toast.clear',{wave:game.wave,reward:e.reward});persistBest();cancelAim();}
     if(e.type==='boss')banner('banner.boss','banner.bossKicker');
     if(e.type==='endless')banner('banner.endless','banner.endlessKicker');
-    if(e.type==='won'||e.type==='lost'){cancelAim();closeMenus();showResult(renderer.kind==='3d'&&!renderer.rig?.calm?2600:600);}
+    if(e.type==='won'||e.type==='lost'){cancelAim();closeMenus();checkpoint();showResult(renderer.kind==='3d'&&!renderer.rig?.calm?2600:600);}
   }
   game.events.length=0;
 }
 function updateBossBar(){
   const boss=game.enemies.find(e=>e.type==='boss'&&e.hp>0),width=boss?Math.max(0,boss.hp/boss.maxHp*100).toFixed(1):null;
   if(width===bossShown)return;bossShown=width;
+  const wasHidden=$('boss-bar').hidden;
   $('boss-bar').hidden=!boss;if(boss)$('boss-fill').style.width=width+'%';
+  if(wasHidden!==$('boss-bar').hidden)updateInsets(true);
 }
 function frame(now){
+  if(document.hidden||fatal)return;
   const elapsed=Math.max(0,(now-previous)/1000),dt=Math.min(elapsed,.05);previous=now;game.tick(dt);handleEvents();
-  renderer.draw(game.paused?0:dt,Math.min(elapsed,.25));
-  if(renderer.kind==='3d')positionPads();
-  positionOverlays();updateBossBar();
+  const drawElapsed=Math.max(0,(now-lastDraw)/1000),idle=game.paused||game.phase!=='wave';
+  if(!contextLost&&(!idle||drawElapsed>=1/30-.001)){
+    renderer.draw(game.paused?0:Math.min(drawElapsed,.05),Math.min(drawElapsed,.25));lastDraw=now;
+    if(renderer.kind==='3d')positionPads();
+    positionOverlays();updateBossBar();
+  }
   if(now-lastHud>180){updateHud();lastHud=now;audio.setAmbience(renderer.ambience?.());}
-  requestAnimationFrame(frame);
+  if(started&&game.phase==='wave'&&!game.paused&&now-lastCheckpoint>=5000)checkpoint();
+  if(!idle&&!contextLost&&renderer.kind==='3d'&&now>autoQualityAt){
+    slowFrames.push(elapsed);if(slowFrames.length>180)slowFrames.shift();
+    if(slowFrames.length===180&&slowFrames.reduce((a,b)=>a+b,0)/180>.025){
+      if(quality==='low'){toast('toast.slowDevice');autoQualityAt=now+60000;slowFrames=[];}
+      else{quality=quality==='high'?'medium':'low';createRenderer();drawIcons();toast('toast.autoQuality',()=>({quality:t(`quality.${quality}`)}));}
+    }
+  }else slowFrames=[];
+  frameId=requestAnimationFrame(frame);
 }
-updateInsets(true);createRenderer();drawIcons();applyLanguage();requestAnimationFrame(frame);
+function resumeFrames(){if(fatal)return;cancelAnimationFrame(frameId);previous=performance.now();lastDraw=previous;frameId=requestAnimationFrame(frame);audio.setHidden(false);}
+async function back(){
+  if($('error-dialog').open||$('continue-dialog').open)return;
+  const dialog=[...document.querySelectorAll('dialog[open]')].at(-1);
+  if(dialog){closeDialog(dialog.id);return;}
+  if($('system-menu').classList.contains('open')){closeSystemMenu();return;}
+  if(!$('log').hidden){setLog(false);return;}
+  if(aiming||buildType||selectedPad!==null){cancelAim();buildType=null;renderer.buildType=null;closeMenus();updateHud();return;}
+  if(game.phase==='wave'&&!game.paused){pause();return;}
+  openDialog('exit-dialog');
+}
+$('cancel-exit').addEventListener('click',()=>closeDialog('exit-dialog'));
+$('confirm-exit').addEventListener('click',async()=>{
+  await checkpoint();
+  try{await runs.flush();await storage.flush();$('exit-unsaved').hidden=true;await platform.exit();}
+  catch{saveFailed=true;updateSaveWarning();$('exit-copy').textContent=t('save.failed');$('exit-unsaved').hidden=false;}
+});
+$('exit-unsaved').addEventListener('click',()=>{void platform.exit();});
+$('continue-dialog').addEventListener('cancel',event=>event.preventDefault());
+$('error-dialog').addEventListener('cancel',event=>event.preventDefault());
+$('new-run').addEventListener('click',()=>reset());
+$('retry-load').addEventListener('click',()=>location.reload());
+$('continue-run').addEventListener('click',()=>{
+  if(!pendingContinue)return;
+  game=Game.fromSnapshot(pendingContinue.game);runId=pendingContinue.runId;difficulty=game.difficulty;pendingDifficulty=difficulty;
+  started=true;pendingContinue=null;pauses.reset();pauses.set('user',true);closeDialog('continue-dialog');
+  renderer.setGame(game);shownCredits=game.credits;$('speed').textContent=game.speed+'×';lastLog='';lastMenu='';bossShown=null;updateBossBar();updateHud();
+  write('last-beacon-difficulty',difficulty);lastCheckpoint=performance.now();
+});
+updateInsets(true);createRenderer();drawIcons();applyLanguage();updateSaveWarning();resumeFrames();
+if(!started){
+  $('continue-run').hidden=!pendingContinue;
+  $('retry-load').hidden=!saved.blocked&&!saved.error;
+  $('continue-copy').textContent=t(saved.error?'save.unavailable':saved.blocked?'save.incompatible':saved.recovered?'save.recovered':'save.found',{wave:pendingContinue?.game.state.wave||0});
+  openDialog('continue-dialog');
+}else checkpoint();
+if(saved.recovered&&started)toast('save.recovered');
+document.querySelector('.game-shell').inert=false;document.querySelector('.game-shell').setAttribute('aria-busy','false');$('startup-loading').hidden=true;
+void bindLifecycle(platform,{
+  suspend(){pauses.set('lifecycle',true);cancelAim();audio.setHidden(true);cancelAnimationFrame(frameId);checkpoint();updateHud();},
+  resume:resumeFrames,back
+}).catch(error=>diagnostics.record(error,'lifecycle'));
+addEventListener('pointerdown',()=>{audio.recover().catch(error=>diagnostics.record(error,'audio'));if(!document.hidden&&!fatal&&!contextLost)resumeFrames();},{passive:true});
 // Automated browser checks drive the game through this hook; it only exists with ?debug in the URL.
-if(new URLSearchParams(location.search).has('debug'))window.lastBeacon={get game(){return game;},get renderer(){return renderer;},activatePad,selectType,toggleStrike,fireStrikeAt,aimBeamAt,beamAuto,openMenu,closeMenus};
+const debugAllowed=typeof __LAST_BEACON_DEBUG__==='undefined'||__LAST_BEACON_DEBUG__;
+if(debugAllowed&&new URLSearchParams(location.search).has('debug'))window.lastBeacon={get game(){return game;},get renderer(){return renderer;},get platform(){return platform;},checkpoint,back,activatePad,selectType,toggleStrike,fireStrikeAt,aimBeamAt,beamAuto,openMenu,closeMenus};
 if(renderer.kind==='3d'&&!read('last-beacon-camera-hint'))setTimeout(()=>{if(!activeToast&&!coach){toast('toast.cameraHint');write('last-beacon-camera-hint','1');}},9000);
+}

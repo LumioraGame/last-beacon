@@ -1,9 +1,9 @@
 // Original synthesized sound effects and ambience. No samples, downloads, or audio permissions.
 export class AudioEngine {
-  constructor(){this.enabled=false;this.ctx=null;this.last={};this.level=1;}
+  constructor(){this.enabled=false;this.ctx=null;this.last={};this.level=1;this.hidden=false;this.resuming=null;}
   async toggle(){
     if(!this.ctx&&!this.init())return false;
-    if(this.ctx.state==='suspended')await this.ctx.resume();
+    if(['suspended','interrupted'].includes(this.ctx.state)&&!this.hidden)await this.ctx.resume();
     this.enabled=!this.enabled;
     this.master.gain.setTargetAtTime(this.enabled?.9:0,this.ctx.currentTime,.05);
     if(this.enabled)this.play('build');
@@ -12,6 +12,7 @@ export class AudioEngine {
   init(){
     const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return false;
     const ctx=this.ctx=new Audio(),comp=ctx.createDynamicsCompressor();
+    ctx.onstatechange=()=>{if(this.hidden&&ctx.state==='running')void ctx.suspend().catch(()=>{});};
     comp.threshold.value=-16;comp.ratio.value=5;comp.attack.value=.004;comp.release.value=.2;
     this.master=ctx.createGain();this.master.gain.value=0;this.master.connect(comp);comp.connect(ctx.destination);
     const length=ctx.sampleRate*2,buffer=ctx.createBuffer(1,length,ctx.sampleRate),data=buffer.getChannelData(0);
@@ -26,7 +27,12 @@ export class AudioEngine {
     return true;
   }
   // Background tabs stay silent; the looping beds would otherwise keep playing.
-  setHidden(hidden){if(!this.ctx)return;if(hidden)this.ctx.suspend();else if(this.enabled)this.ctx.resume();}
+  setHidden(hidden){this.hidden=hidden;if(!this.ctx)return;if(hidden)void this.ctx.suspend().catch(()=>{});else void this.recover().catch(()=>{});}
+  async recover(){
+    if(!this.ctx||!this.enabled||this.hidden||this.ctx.state==='running'||this.ctx.state==='closed')return;
+    if(!this.resuming)this.resuming=this.ctx.resume().finally(()=>{this.resuming=null;});
+    await this.resuming;
+  }
   setAmbience(mood){
     if(!this.ctx||!mood)return;
     const t=this.ctx.currentTime,m=this.mood=mood;

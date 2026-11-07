@@ -23,11 +23,11 @@
 - 程序生成的海岛、建筑、机械生物、特效与合成音效（海浪、风雨、雷声，开波时灯塔拉响高低两音的雾笛；每种武器有自己的击倒声，冰壳碎裂有清脆的声响；音效按画面位置立体声定位，并随离镜头的远近衰减，镜头压低靠近海面时浪声更响），无第三方游戏素材。
 - 中英双语界面，适配桌面和手机；键盘和指针均可操作建造基座。
 - 免费，无需登录、API Key、后端、安装依赖或外部资源。Three.js 已随仓库内置，不走 CDN。
-- 各难度的最高抵达波次、通关与无尽纪录仅保存在当前浏览器。刷新会开始新的一局。
+- 各难度的最高抵达波次、通关与无尽纪录保存在本机。游戏会定期保存当前守望；刷新或重新打开后可选择继续，并在准备好后手动恢复战斗。
 
 ## 本地试玩
 
-需要 Node.js 20 或更高版本。无需 `npm install`。
+需要 Node.js 22 或更高版本。浏览器试玩无需 `npm install`。
 
 ```sh
 npm run dev
@@ -101,6 +101,50 @@ npm run build
 自动化测试覆盖：路径、电网断连与恢复、供电优先级、资源扣除、退款上限、暂停、倍速、超频、失败、胜利，以及使用真实预算完成全部十波的战役回归（守望者会像普通玩家一样放下光束；从不放光束时同一防线会在最后的夜里失守）；电弧塔连锁与衰减、索敌方式、裂殖体分裂、灯塔聚光的蓄能 / 范围 / 致盲 / 冷却、光束的落下 / 滑动 / 计时 / 伤害加成 / 减速、夜战视野与灯光（光束、灯塔、中继站、深渊巨像）、无尽潮汐、三档难度和战斗事件坐标。双语测试覆盖文案和参数完整性、语言选择优先级、存储异常与动态错误提示。构建测试确认单文件版自包含。测试不向游戏注入无限资源。
 
 完整验证记录见 [docs/VALIDATION.md](docs/VALIDATION.md)。
+
+## iOS / Android 原生版
+
+应用标识为 `ai.lumiora.lastbeacon`，名称为 Last Beacon / 最后的灯塔。原生版打包本地资源，不依赖线上试玩地址。iOS 首发支持 iPhone（iOS 15.5+），Android 最低 API 24、目标 API 36；真机兼容性与商店发布状态见 [移动发布记录](docs/MOBILE_RELEASE.md)。
+
+原生开发与新增的浏览器自动化需要先安装锁定依赖。使用 Xcode 26+ 和支持 API 36 的 Android SDK / Java 21：
+
+```sh
+npm ci
+npm run mobile:assets
+npm run mobile:sync
+npm run mobile:ios
+# 或 npm run mobile:android
+```
+
+`npm run build:native` 生成独立的 `dist-native/`，保留原有 `dist/` 网站与单文件离线版。`mobile:sync` 先构建、写入递增版本号，再同步两个原生工程。营销版本来自 `package.json`，候选构建号可通过 `MOBILE_BUILD_NUMBER` 显式指定；默认使用秒级时间戳并在本机保证递增。发布时须高于两个商店已使用的构建号。原生调试网页包可用 `npm run build:native:debug` 生成，正式包会移除游戏调试入口。
+
+```sh
+npx playwright install chromium
+npm run test:mobile
+# 已安装 debug APK 的专用 QA 设备（测试会开始新的一局）：
+ANDROID_SERIAL=emulator-5570 npm run test:android
+```
+
+iOS UI 自动化使用独立的 XcodeGen 测试工程，不更改应用工程；需要安装 XcodeGen 2.45+ 并选定模拟器：
+
+```sh
+xcodegen generate --spec tests/ios/project.yml
+xcodebuild -project tests/ios/LastBeaconSmoke.xcodeproj -scheme MobileSmoke \
+  -destination 'id=YOUR_QA_SIMULATOR_UDID' \
+  -derivedDataPath artifacts/ios-ui CODE_SIGNING_ALLOWED=NO test
+```
+
+设置通过 Preferences 持久化，完整守望通过应用私有文件双槽保存；浏览器使用 localStorage 保存设置、IndexedDB 保存守望。战斗中约每五秒保存一次，并在重要操作和切到后台时尝试保存。看到保存警告时可重试；后台进程被突然终止可能丢失最近几秒。未兼容或无法读取的存档不会被静默替换。浏览器网站与原生应用无法自动共享存档。
+
+商店截图从已打包的游戏界面采集，场景由真实预算下通关十波的策略生成。以下命令会替换所选专用 QA 设备上的当前守望；Android 需先安装当前 debug APK，iOS 需先生成上面的 XcodeGen 工程。图片与采集记录保存在忽略的 `artifacts/store-screenshots/`：
+
+```sh
+npm run store:scenes
+ANDROID_SERIAL=YOUR_QA_DEVICE npm run store:capture:android
+IOS_SIMULATOR_UDID=YOUR_QA_SIMULATOR IOS_SCREENSHOT_CLASS=iphone-large npm run store:capture:ios
+```
+
+隐私与支持页面源文件位于 `legal/`，随静态站点构建，并已通过独立的 `mobile-policy-pages` 分支发布：[隐私政策](https://lumioragame.github.io/last-beacon/privacy.html)、[支持](https://lumioragame.github.io/last-beacon/support.html)。商店声明仍需由发行者完成。商店文案与外部输入清单见 [docs/store/LISTINGS.md](docs/store/LISTINGS.md)。签名密钥、证书、Apple Team 与商店账号由发行者管理，不提交到仓库。Android 发布签名可通过 `LAST_BEACON_KEYSTORE`、`LAST_BEACON_STORE_PASSWORD`、`LAST_BEACON_KEY_ALIAS`、`LAST_BEACON_KEY_PASSWORD` 提供；未配置时只生成未签名的发布候选包。
 
 ## 文件结构
 

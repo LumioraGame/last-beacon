@@ -8,10 +8,11 @@
   <title data-i18n="page.title">最后的灯塔 · Last Beacon</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="stylesheet" href="./src/style.css">
-  <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./src/bootstrap.js"></script>
 </head>
 <body>
-  <main class="game-shell">
+  <div id="startup-loading" class="startup-loading" role="status">正在点亮灯塔… / Lighting the beacon…</div>
+  <main class="game-shell" aria-busy="true" inert>
     <canvas id="battlefield" aria-label="三维海岛战场。" data-i18n-aria="map.description"></canvas>
     <div id="pad-controls" aria-label="可建造基座" data-i18n-aria="region.pads"></div>
     <div id="world-layer" class="world-layer">
@@ -67,6 +68,7 @@
     <div id="wave-banner" class="wave-banner" aria-live="polite"></div>
     <div id="paused-label" class="paused-label" hidden><span>Ⅱ</span><div data-i18n="paused.title">战场已暂停</div><button id="resume" type="button" data-i18n="action.resumeArrow">继续守望 →</button></div>
     <div id="toast" role="status" class="toast"></div>
+    <div id="save-warning" class="save-warning" role="alert" hidden><span data-i18n="save.failed"></span><button id="retry-save" type="button" data-i18n="save.retry"></button></div>
 
     <aside id="log" class="log glass" aria-label="守望者日志" data-i18n-aria="panel.heading" hidden>
       <div class="log-heading"><span data-i18n="panel.heading">守望者日志</span><button id="log-close" class="close-log" type="button" aria-label="关闭日志" data-i18n-aria="control.closeLog">×</button></div>
@@ -110,9 +112,14 @@
       <section><span data-i18n="help.strikeLabel">07 / 聚光</span><h3 data-i18n="help.strikeTitle">把灯光变成武器。</h3><p data-i18n="help.strikeText"></p></section>
       <section><span data-i18n="help.viewLabel">08 / 视角</span><h3 data-i18n="help.viewTitle">从任何角度守望海岛。</h3><p data-i18n="help.viewText"></p></section>
     </div>
-    <div class="help-keys" data-i18n="help.shortcuts"></div><button class="primary-button close-help" type="button"><span data-i18n="help.back">回到灯塔</span><b>→</b></button></dialog>
+    <div class="help-keys" data-i18n="help.shortcuts"></div><div class="support-actions"><button id="open-privacy" type="button" class="text-button" data-i18n="support.privacy"></button><button id="open-support" type="button" class="text-button" data-i18n="support.help"></button><button id="share-diagnostics" type="button" class="text-button" data-i18n="support.export"></button></div><button class="primary-button close-help" type="button"><span data-i18n="help.back">回到灯塔</span><b>→</b></button></dialog>
+  <dialog id="legal-dialog" class="game-dialog" aria-labelledby="legal-title"><div class="dialog-top"><h2 id="legal-title"></h2><button id="close-legal" class="close-dialog" type="button" data-i18n-aria="support.close">×</button></div><div id="legal-copy" class="legal-copy"></div></dialog>
   <dialog id="restart-dialog" class="game-dialog small-dialog"><span class="eyebrow">A NEW WATCH</span><h2 data-i18n="restart.title">重新出发？</h2><p class="dialog-intro" data-i18n="restart.description">本局的防线和进度会重置，最高纪录和语言选择会保留。</p><fieldset id="difficulty" class="difficulty"><legend data-i18n="difficulty.label">难度</legend><button type="button" data-difficulty="easy" data-i18n="difficulty.easy">轻松</button><button type="button" data-difficulty="normal" data-i18n="difficulty.normal">标准</button><button type="button" data-difficulty="hard" data-i18n="difficulty.hard">困难</button></fieldset><p id="difficulty-note" class="difficulty-note"></p><div class="dialog-actions"><button data-i18n="restart.cancel" id="cancel-restart" class="secondary-button" type="button">继续本局</button><button data-i18n="restart.confirm" id="confirm-restart" class="primary-button" type="button">重新出发 →</button></div></dialog>
   <dialog id="result-dialog" class="game-dialog result-dialog"><span id="result-kicker" class="eyebrow">THE LIGHT REMAINS</span><div class="result-art" aria-hidden="true">✦</div><h2 id="result-title">黎明终于抵达。</h2><p id="result-copy" class="dialog-intro"></p><div id="result-stats" class="result-stats"></div><button id="endless" class="primary-button endless-button" type="button" hidden><span data-i18n="result.endless">进入无尽潮汐</span><b>∞</b></button><button id="play-again" class="primary-button" type="button"><span data-i18n="result.again">再守望一次</span><b>→</b></button><button data-i18n="result.view" id="view-island" class="text-button" type="button">查看战场</button></dialog>
+  <dialog id="continue-dialog" class="game-dialog small-dialog" aria-labelledby="continue-title"><span class="eyebrow">THE LIGHT IS WAITING</span><h2 id="continue-title" data-i18n="save.title"></h2><p id="continue-copy" class="dialog-intro"></p><div class="dialog-actions"><button id="new-run" class="secondary-button" type="button" data-i18n="save.new"></button><button id="continue-run" class="primary-button" type="button" data-i18n="save.continue"></button></div><button id="retry-load" class="text-button" type="button" data-i18n="save.retryLoad" hidden></button></dialog>
+  <dialog id="exit-dialog" class="game-dialog small-dialog" aria-labelledby="exit-title"><h2 id="exit-title" data-i18n="exit.title"></h2><p id="exit-copy" class="dialog-intro" data-i18n="exit.copy"></p><div class="dialog-actions"><button id="cancel-exit" class="secondary-button" type="button" data-i18n="exit.cancel"></button><button id="confirm-exit" class="primary-button" type="button" data-i18n="exit.confirm"></button></div><button id="exit-unsaved" class="text-button" type="button" data-i18n="exit.unsaved" hidden></button></dialog>
+  <dialog id="error-dialog" class="game-dialog small-dialog" aria-labelledby="error-title"><h2 id="error-title" data-i18n="error.title"></h2><p class="dialog-intro" data-i18n="error.copy"></p><div class="dialog-actions"><button id="error-support" class="secondary-button" type="button" data-i18n="support.export"></button><button id="reload-app" class="primary-button" type="button" data-i18n="error.retry"></button></div></dialog>
+  <dialog id="diagnostics-dialog" class="game-dialog small-dialog" aria-labelledby="diagnostics-title"><h2 id="diagnostics-title" data-i18n="support.export"></h2><p class="dialog-intro" data-i18n="support.review"></p><textarea id="diagnostics-text" readonly rows="10" data-i18n-aria="support.export"></textarea><div class="dialog-actions"><button id="close-diagnostics" class="secondary-button" type="button" data-i18n="support.close"></button><button id="copy-diagnostics" class="primary-button" type="button" data-i18n="support.copy"></button></div></dialog>
   <noscript>请启用 JavaScript 运行游戏。Please enable JavaScript to play. 无需登录 / No account or API key required.</noscript>
 </body>
 </html>

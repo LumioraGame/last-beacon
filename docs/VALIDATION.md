@@ -227,3 +227,51 @@ Vercel 已完成生产部署。2026-09-07，创作者确认正式域名 [last-be
 在桌面 Chrome 中直接打开新地址，无需登录、下载或安装；三维海岛、资源面板与建造栏正常显示。点击「Begin the first wave」进入第一波战斗，随后正常进入第二波准备阶段。HTTP 检查返回 200。
 
 本次验证覆盖新域名访问与首波运行，未重跑完整战役或多设备性能测试。
+
+## 2026-11-06 · iOS / Android release implementation
+
+Candidate: **Last Beacon / 最后的灯塔**, `ai.lumiora.lastbeacon`, marketing **1.0.0**, local build **1794023636**. Source baseline is `42e7693`; the candidate includes the mobile implementation recorded in `docs/MOBILE_RELEASE.md`. Native web bundle SHA-256: `4d5dac9ad1a7cf1feb395ab2e7386735189438719f9915ecf1398061745eefff`.
+
+### Automated and packaged-app evidence
+
+- `npm test`: **48/48 pass**. Includes deterministic original/restored continuation, all projectile types, night/boss/endless snapshots, malformed/future save rejection, backup recovery, terminal markers, failed-write retry, settings migration, pause ownership, and repeated save restoration through a complete real-budget campaign.
+- `npm run build`: static site and self-contained HTML build successfully, with 20 inlined modules. `npm run build:native` produces a separate release bundle without the game debug hook; browser distribution remains independent of Capacitor packages at runtime.
+- `npm run test:mobile`: portrait/landscape, both locales, small phone/tablet bounds, real touch purchases, Continue, blocked/failed storage, hidden/modal pause ownership, WebGL restoration/fallback, release offline assets, diagnostics, idle checkpoint behavior, public policy/support links, dense pad picking, and boss HUD spacing. Results are recorded below after the final run.
+- Android: Java 21, API 36 emulator (`emulator-5570`), debug APK containing release web assets. `:app:assembleDebug :app:bundleRelease` succeeds. `ANDROID_SERIAL=emulator-5570 npm run test:android` passes actual native touch building, hardware Back/menu/help/pause, Filesystem checkpoint inspection, force-stop/relaunch/Continue, persisted Preferences, and landscape bounds. The restored watch retains **115 parts**, the purchased defense, and the active wave paused. Report: `artifacts/android-smoke/report.json`; screenshots beside it.
+- iOS: Xcode **26.3**, device SDK **iphoneos26.2**, iOS **26.3** simulator, iPhone 17 Pro. Unsigned Release archive succeeds. Separate XcodeGen/XCTest UI tests cover paid touch building, handbook during combat, both landscapes, Home/background pause, process termination/relaunch, and Continue with the purchased defense and **115 parts**. Results are recorded below after the final run. Tests use ordinary accessibility controls, including changing the persisted language through the menu.
+- `npm run mobile:verify` passes: Android and iOS contain the exact current web bundle; iOS app ID/version/build/minimum **15.5** and iPhone-only device family are correct; the archive contains app-level UserDefaults **CA92.1** and FileTimestamp **C617.1** declarations. Store icons/feature graphic have correct sizes and no alpha. The AAB contains **zero bundled `.so` files**. Both release candidates are **unsigned**.
+
+Local artifacts (ignored by Git):
+
+| Artifact | Location / checksum |
+| --- | --- |
+| Android debug APK | `android/app/build/outputs/apk/debug/app-debug.apk` |
+| Android unsigned AAB | `android/app/build/outputs/bundle/release/app-release.aab` |
+| AAB SHA-256 | `e1118e83cf116103c65fe9dd7b2973357292d26c391c8c269e97599cd42f907a` |
+| iOS unsigned archive | `artifacts/LastBeacon-unsigned.xcarchive` |
+| Packaging verification | `artifacts/mobile-verification.json` |
+| Native iOS UI results | `artifacts/ios-ui/Logs/Test/` |
+| Android native QA | `artifacts/android-smoke/` |
+
+### Store materials and public pages
+
+**24 opaque PNG gameplay screenshots** were captured from the packaged QA apps with this candidate's release web assets. Each device class has English and Simplified Chinese versions of connected building, night combat, and the Abyssal Colossus. Gameplay checkpoints come from a complete campaign using public `Game` actions and a finite budget; capture scripts do not grant resources or enable the release debug hook.
+
+| Device class | Pixels | Images | Directory under `artifacts/store-screenshots/` |
+| --- | --- | --- | --- |
+| iPhone 17 Pro | 1206×2622 | 6 | `ios/iphone-medium/` |
+| iPhone 17 Pro Max | 1320×2868 | 6 | `ios/iphone-large/` |
+| Android phone | 1080×1920 | 6 | `android/phone/` |
+| Android tablet | 1600×2560 | 6 | `android/tablet/` |
+
+`artifacts/store-screenshots/candidate.json` records build, native web hash, dimensions, locale, scene, and each PNG's checksum. Per-class manifests and iOS `.xcresult` capture attachments are retained. Screenshot inspection exposed boss health overlapping the resource HUD and dark status icons against night scenes; both were fixed before this final capture set. Capture commands are in the README. Native iPad remains outside v1 scope.
+
+[Privacy](https://lumioragame.github.io/last-beacon/privacy.html) and [support](https://lumioragame.github.io/last-beacon/support.html) are published from the separate `mobile-policy-pages` branch. [Deployment 42335045481](https://github.com/LumioraGame/last-beacon/actions/runs/42335045481) succeeded; both pages return HTTP 200 and match the local `legal/` sources byte-for-byte. The current fork's [issue tracker](https://github.com/LumioraGame/last-beacon/issues) is enabled as the support contact. Publication evidence is in `artifacts/policy-publication/`. Localized listing copy is in `docs/store/LISTINGS.md`.
+
+### Remaining release gates
+
+These checks establish simulator/emulator behavior, not physical-device performance or store approval. Minimum deployment targets are configured, but execution here uses current iOS 26.3 and Android API 36, not iOS 15.5 / Android API 24 hardware. Still required: physical cutouts/navigation variants, long press and camera gestures, accessibility enlargement, minimum-device FPS/memory/heat/battery, extended endless play, upgrade migration on physical devices, silent switch/calls/Siri/headphones, signed candidates, publisher legal/privacy/rating/territory declarations, and TestFlight/Play beta feedback.
+
+The existing logged-in Play Console identifies **Lumiora Labs Inc.** as an **Organization account**; the new-personal-account closed-test rule is not assumed to apply. App Store Connect is accessible, but no Last Beacon app record has been created. Local Keychain inspection finds an Apple Development identity and no Apple Distribution identity. The publisher's exact Apple Team and app-specific Android upload-key custody remain pending. No app registration, binary upload, store declaration, submission, or app release was performed. Hosted CI configuration is included; its execution status is recorded below after pushing the review branch.
+
+Final local regression for build **1794023636**: **48 Node tests passed, 22 Playwright tests passed, and 2 native iOS XCTest UI tests passed**, with zero failures. Android packaged-app smoke passed on the same build. All 24 screenshot dimensions and opaque PNG formats were verified after capture. Native release artifact inspection passed against the same web-bundle hash shown above.

@@ -8,8 +8,38 @@
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test tests/*.test.mjs",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "build:native": "node scripts/build-native.mjs",
+    "build:native:debug": "node scripts/build-native.mjs --debug",
+    "mobile:assets": "node scripts/generate-mobile-assets.mjs",
+    "mobile:version": "node scripts/stamp-native.mjs",
+    "mobile:verify": "node scripts/verify-mobile-artifacts.mjs",
+    "mobile:sync": "npm run build:native && node scripts/stamp-native.mjs && cap sync",
+    "mobile:ios": "npm run mobile:sync && cap open ios",
+    "mobile:android": "npm run mobile:sync && cap open android",
+    "test:mobile": "playwright test",
+    "test:android": "node scripts/android-smoke.mjs",
+    "store:scenes": "node scripts/prepare-store-scenes.mjs",
+    "store:capture:android": "node scripts/capture-android-store.mjs",
+    "store:capture:ios": "node scripts/capture-ios-store.mjs"
   },
-  "engines": { "node": ">=20" },
-  "license": "MIT"
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/preferences": "8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0",
+    "@playwright/test": "1.65.0",
+    "esbuild": "0.28.2",
+    "sharp": "0.35.5"
+  }
 }
