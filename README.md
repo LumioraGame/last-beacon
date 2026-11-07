@@ -134,6 +134,17 @@ npm run test:native-storage
 ANDROID_SERIAL=emulator-5570 npm run test:android
 ```
 
+Android 升级验证还需准备同包名、同签名、且 `versionCode` 更高的 debug APK；Java 21、`adb` 和 SDK 的 `apkanalyzer` 必须可用（后者默认从 `ANDROID_HOME/cmdline-tools/latest/bin/` 查找，也可用 `LAST_BEACON_APKANALYZER` 指定）。以下命令会在专用 QA 设备上开始新的一局，购买防御、暂停并等待波次存档提交，再通过 `adb install -r` 更新应用；更新后逐字节检查 Preferences 和已提交的存档，并验证 Continue、Back 与横屏。报告目录可单独指定，保留原候选包的测试记录：
+
+```sh
+ANDROID_SERIAL=YOUR_QA_DEVICE \
+LAST_BEACON_UPGRADE_APK=/absolute/path/to/newer-debug.apk \
+LAST_BEACON_ANDROID_REPORT_DIR=artifacts/android-upgrade/smoke \
+npm run test:android
+```
+
+此流程使用 debug 原生壳以读取私有存储及驱动 WebView，需打包正式网页资源；它不代替物理设备或 Google Play 实际分发包的升级验收。脚本会在操作游戏前拒绝其他包名、非 debug 或不递增的 APK，不会卸载应用或清空数据。
+
 iOS UI 自动化使用独立的 XcodeGen 测试工程，不更改应用工程；需要安装 XcodeGen 2.45+ 并选定模拟器：
 
 ```sh
@@ -142,6 +153,14 @@ xcodebuild -project tests/ios/LastBeaconSmoke.xcodeproj -scheme MobileSmoke \
   -destination 'id=YOUR_QA_SIMULATOR_UDID' \
   -derivedDataPath artifacts/ios-ui CODE_SIGNING_ALLOWED=NO test
 ```
+
+iOS 升级检查使用已启动、已同步正式网页资源的专用 iPhone 模拟器；它会开始新的一局，运行原生触控/后台/恢复用例，生成更高 build 的模拟器应用并原位安装，核对 Preferences 与双槽存档未变，再通过独立的 `UpgradeCheck` 用例确认暂停的波次、115 零件和购买的哨戒炮。应用工程与商店候选包的 build 不会被改写：
+
+```sh
+IOS_SIMULATOR_UDID=YOUR_QA_SIMULATOR_UDID npm run test:ios-upgrade
+```
+
+报告、两次 `.xcresult` 与截图附件默认保存在 `artifacts/ios-upgrade/`。重跑时用 `LAST_BEACON_IOS_UPGRADE_REPORT_DIR` 选择新的证据目录；脚本不会覆盖已有结果。模拟器升级不代替真机或 TestFlight 分发包验收。
 
 设置通过 Preferences 持久化，完整守望通过应用私有文件双槽保存；浏览器使用 localStorage 保存设置、IndexedDB 保存守望。战斗中约每五秒保存一次，并在重要操作和切到后台时尝试保存。看到保存警告时可重试；后台进程被突然终止可能丢失最近几秒。未兼容或无法读取的存档不会被静默替换。浏览器网站与原生应用无法自动共享存档。
 

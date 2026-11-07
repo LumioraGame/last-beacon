@@ -19,6 +19,19 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: App
         SWIFT_VERSION: '5.0'
+  UpgradeCheck:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UpgradeUITests.swift
+    dependencies:
+      - target: LastBeacon/App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.lumiora.lastbeacon.upgradecheck
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: App
+        SWIFT_VERSION: '5.0'
   StoreCapture:
     type: bundle.ui-testing
     platform: iOS
@@ -40,6 +53,13 @@ schemes:
     test:
       targets:
         - MobileSmoke
+  UpgradeCheck:
+    build:
+      targets:
+        UpgradeCheck: all
+    test:
+      targets:
+        - UpgradeCheck
   StoreCapture:
     build:
       targets:

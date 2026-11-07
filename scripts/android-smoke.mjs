@@ -1,13 +1,30 @@
 // Runs against an explicitly selected QA device with the debug APK installed. Starts a new watch; keeps preferences/records.
 import {execFileSync} from 'node:child_process';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {join,resolve} from 'node:path';
 import assert from 'node:assert/strict';
 const serial=process.env.ANDROID_SERIAL;
 if(!serial)throw new Error('Select a QA device using ANDROID_SERIAL');
-const adb=(...args)=>execFileSync('adb',['-s',serial,...args],{encoding:'utf8'}).trim();
+const adbRaw=(...args)=>execFileSync('adb',['-s',serial,...args],{encoding:'utf8'});
+const adb=(...args)=>adbRaw(...args).trim();
 const app='ai.lumiora.lastbeacon',port=Number(process.env.LAST_BEACON_CDP_PORT||9235);
+const output=process.env.LAST_BEACON_ANDROID_REPORT_DIR||'artifacts/android-smoke';
+const upgradeAPK=process.env.LAST_BEACON_UPGRADE_APK&&resolve(process.env.LAST_BEACON_UPGRADE_APK);
+const packageVersion=()=>adb('shell','dumpsys','package',app).match(/versionCode=(\d+)/)?.[1];
+const sha=value=>createHash('sha256').update(value).digest('hex');
+let upgrade;
+if(upgradeAPK){
+  const analyzer=process.env.LAST_BEACON_APKANALYZER||(process.env.ANDROID_HOME?join(process.env.ANDROID_HOME,'cmdline-tools/latest/bin/apkanalyzer'):'apkanalyzer');
+  const [id,build,version]=execFileSync(analyzer,['apk','summary',upgradeAPK],{encoding:'utf8'}).trim().split(/\s+/);
+  assert.equal(id,app,'upgrade APK must belong to Last Beacon');
+  const fromBuild=packageVersion();
+  assert.ok(fromBuild&&Number.isSafeInteger(Number(build))&&Number(build)>Number(fromBuild),'upgrade APK must have a higher build than the installed QA app');
+  assert.equal(execFileSync(analyzer,['manifest','debuggable',upgradeAPK],{encoding:'utf8'}).trim(),'true','upgrade smoke requires a debuggable QA APK');
+  upgrade={fromBuild,toBuild:build,version,apkSHA256:sha(await readFile(upgradeAPK))};
+}
 const originalRotation=adb('shell','cmd','window','user-rotation');
-await mkdir('artifacts/android-smoke',{recursive:true});
+await mkdir(output,{recursive:true});
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(check,label,timeout=30000){const start=Date.now();while(Date.now()-start<timeout){try{if(await check())return;}catch{}await delay(150);}throw new Error(`Timed out: ${label}`);}
 let socket,sequence=0,pending=new Map(),viewport;
@@ -31,7 +48,12 @@ async function tap(selector){
   adb('shell','input','tap',String(Math.round(viewport.screenX+point.x*scale)),String(Math.round(viewport.screenY+point.y*scale)));
   await delay(100);
 }
-async function screenshot(name){const result=await call('Page.captureScreenshot',{format:'png'});await writeFile(`artifacts/android-smoke/${name}.png`,Buffer.from(result.data,'base64'));}
+async function screenshot(name){await writeFile(join(output,`${name}.png`),execFileSync('adb',['-s',serial,'exec-out','screencap','-p'],{maxBuffer:16*1024*1024}));}
+function nativeData(){
+  const paths=adb('shell','run-as',app,'ls','files').split(/\s+/).filter(s=>/^last-beacon-run-[01]\.json$/.test(s)).sort();
+  assert.ok(paths.length,'a committed checkpoint must exist before the update');
+  return {preferences:adbRaw('shell','run-as',app,'cat','shared_prefs/CapacitorStorage.xml'),checkpoints:Object.fromEntries(paths.map(path=>[path,adbRaw('shell','run-as',app,'cat',`files/${path}`)]))};
+}
 try{
   adb('shell','am','start','-n',`${app}/.MainActivity`);
   console.log('Android smoke: connecting to the installed QA app');
@@ -59,15 +81,27 @@ try{
   await until(()=>evaluate(`Number(document.querySelector('#credits').textContent)===${credits-65}`),'paid defense');
   await tap('#next-wave');adb('shell','input','keyevent','4');
   await until(()=>evaluate('!document.querySelector("#paused-label").hidden'),'Back pauses wave');
-  await delay(1200);await screenshot('paused-wave');
-  const files=adb('shell','run-as',app,'ls','files').split(/\s+/).filter(s=>/^last-beacon-run-[01]\.json$/.test(s));
-  const checkpoints=files.map(path=>JSON.parse(adb('shell','run-as',app,'cat',`files/${path}`))).sort((a,b)=>b.generation-a.generation);
+  await screenshot('paused-wave');
+  let checkpoints;
+  await until(()=>{
+    const files=adb('shell','run-as',app,'ls','files').split(/\s+/).filter(s=>/^last-beacon-run-[01]\.json$/.test(s));
+    checkpoints=files.map(path=>JSON.parse(adb('shell','run-as',app,'cat',`files/${path}`))).sort((a,b)=>b.generation-a.generation);
+    return checkpoints[0]?.game?.state?.phase==='wave'&&checkpoints[0].game.state.credits===credits-65&&checkpoints[0].game.state.towers.length>=2;
+  },'committed paid-defense wave checkpoint');
   assert.ok(checkpoints[0].game.state.towers.length>=2);assert.equal(checkpoints[0].game.state.phase,'wave');
   console.log('Android smoke: checkpoint verified; terminating and relaunching the app');
   adb('shell','am','force-stop',app);socket.close();
+  if(upgrade){
+    console.log(`Android smoke: updating QA build ${upgrade.fromBuild} to ${upgrade.toBuild} without clearing app data`);
+    const before=nativeData();
+    assert.match(adb('install','-r','--no-incremental',upgradeAPK),/Success\s*$/,'in-place APK update succeeds');
+    assert.equal(packageVersion(),upgrade.toBuild,'the newer build is installed');
+    assert.deepEqual(nativeData(),before,'Preferences and committed checkpoints survive the package update unchanged');
+    upgrade={...upgrade,preferencesPreserved:true,checkpointSHA256:Object.fromEntries(Object.entries(before.checkpoints).map(([path,data])=>[path,sha(data)]))};
+  }
   adb('shell','am','start','-n',`${app}/.MainActivity`);await delay(1000);await connect();
   await until(()=>evaluate('document.querySelector(".game-shell").getAttribute("aria-busy")==="false" && document.querySelector("#continue-dialog").open'),'Continue after OS process kill');
-  await screenshot('continue-after-kill');await tap('#continue-run');
+  await screenshot(upgrade?'continue-after-update':'continue-after-kill');await tap('#continue-run');
   assert.ok((await evaluate('document.querySelector("#quality-value").textContent')).includes('2D'),'Preferences quality survives process kill');
   await until(()=>evaluate('!document.querySelector("#paused-label").hidden'),'restored watch paused');
   assert.equal(Number(await evaluate('document.querySelector("#credits").textContent')),checkpoints[0].game.state.credits);
@@ -82,8 +116,8 @@ try{
   await tap('#menu-toggle');await tap('#help');await until(()=>evaluate('document.querySelector("#help-dialog").open'),'landscape handbook');
   adb('shell','input','keyevent','4');await until(()=>evaluate('!document.querySelector("#help-dialog").open'),'landscape Back closes help');
   const packageInfo=adb('shell','dumpsys','package',app);
-  const report={serial,app,at:new Date().toISOString(),buildNumber:packageInfo.match(/versionCode=(\d+)/)?.[1],androidAPI:adb('shell','getprop','ro.build.version.sdk'),releaseDebugAbsent:true,tapBuild:true,backMenu:true,backPause:true,processKillContinue:true,preferencesPersist:true,landscapeBounds:true,landscapeHelpAndBack:true,restoredCredits:checkpoints[0].game.state.credits,restoredGeneration:checkpoints[0].generation};
-  await writeFile('artifacts/android-smoke/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+  const report={serial,app,at:new Date().toISOString(),buildNumber:packageInfo.match(/versionCode=(\d+)/)?.[1],androidAPI:adb('shell','getprop','ro.build.version.sdk'),androidRelease:adb('shell','getprop','ro.build.version.release'),deviceModel:adb('shell','getprop','ro.product.model'),emulator:adb('shell','getprop','ro.kernel.qemu')==='1',webViewProvider:adb('shell','dumpsys','webviewupdate').split('\n').find(s=>s.includes('Current WebView package'))?.trim(),releaseDebugAbsent:true,tapBuild:true,backMenu:true,backPause:true,processKillContinue:true,preferencesPersist:true,landscapeBounds:true,landscapeHelpAndBack:true,restoredCredits:checkpoints[0].game.state.credits,restoredGeneration:checkpoints[0].generation,...(upgrade?{upgrade}:{} )};
+  await writeFile(join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }finally{
   socket?.close();adb('forward','--remove',`tcp:${port}`);
   if(originalRotation.includes('lock'))adb('shell','cmd','window','user-rotation','lock',originalRotation.match(/\d/)?.[0]||'0');
