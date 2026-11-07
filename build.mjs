@@ -3,7 +3,7 @@ import vm from 'node:vm';
 const root=new URL('.',import.meta.url),out=new URL('dist/',root);
 await rm(out,{recursive:true,force:true});
 await mkdir(out,{recursive:true});
-for(const file of ['index.html','favicon.svg','src','vendor'])await cp(new URL(file,root),new URL(file,out),{recursive:true});
+for(const file of ['index.html','favicon.svg','src','vendor','legal','LICENSE'])await cp(new URL(file,root),new URL(file,out),{recursive:true});
 
 // A standalone edition opens directly via file:// without ES module restrictions.
 // This tiny bundler follows the module graph from src/app.js and gives every module its own scope.
@@ -71,17 +71,19 @@ async function visit(url){
   exported.set(key,new Set(names.map(n=>n.split(':')[0])));
   modules.set(key,`${source}\nreturn {${names.join(',')}};`);order.push(key);
 }
-await visit(new URL('src/app.js',root));
+await visit(new URL('src/bootstrap.js',root));
 for(const i of imported)if(!exported.get(i.from)?.has(i.name))throw new Error(`${i.in} imports "${i.name}", which ${i.from} does not export`);
 const bundle=`(()=>{'use strict';const __modules={};\n${order.map(key=>`__modules[${JSON.stringify(key)}]=(()=>{\n${modules.get(key)}\n})();`).join('\n')}\n})();`;
 new vm.Script(bundle,{filename:'last-beacon.html'});
 if(/<\/script|<!--/i.test(bundle))throw new Error('Inline script contains a sequence that would break the HTML parser');
 const css=await readFile(new URL('src/style.css',root),'utf8');
+const notices=await Promise.all(['LICENSE','vendor/THREE-LICENSE.txt'].map(file=>readFile(new URL(file,root),'utf8')));
 html=html.replace('<link rel="stylesheet" href="./src/style.css">',()=>`<style>${css}</style>`)
   .replace(/<script type="importmap">[\s\S]*?<\/script>\s*/,'')
-  .replace('<script type="module" src="./src/app.js"></script>','')
+  .replace('<script type="module" src="./src/bootstrap.js"></script>','')
   .replace('<link rel="icon" type="image/svg+xml" href="./favicon.svg">','')
-  .replace('</body>',()=>`<script>${bundle}</script></body>`);
-if(/<script[^>]+src=|<link[^>]+href=|https?:\/\/(?!threejs\.org)/.test(html.replace(/<script>[\s\S]*<\/script>/,'')))throw new Error('Single-file edition must not reference external files');
+  .replace('</body>',()=>`<script>${bundle}</script></body>`)
+  .replace('</head>',()=>`<!-- Bundled license notices\n${notices.join('\n\n')}\n-->\n</head>`);
+if(/<script[^>]+src=|<link[^>]+href=|https?:\/\/(?!threejs\.org)/.test(html.replace(/<script>[\s\S]*<\/script>/,'').replace(/<!--[\s\S]*?-->/g,'')))throw new Error('Single-file edition must not reference external files');
 await writeFile(new URL('last-beacon.html',out),html);
 console.log(`Built dist/ for static hosting and dist/last-beacon.html (${Math.round(html.length/1024)} KB, ${order.length} modules) for offline play.`);

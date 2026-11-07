@@ -80,6 +80,8 @@ export function waveDefinition(n) {
 export const isNightWave=n=>NIGHT_SKIES.includes(waveDefinition(n).sky);
 
 export class Game {
+  snapshot() { return snapshotGame(this); }
+  static fromSnapshot(snapshot) { return restoreGame(snapshot); }
   constructor({starter=true,difficulty='normal'}={}) {
     this.difficulty=Object.hasOwn(DIFFICULTIES,difficulty)?difficulty:'normal';
     this.hp=100; this.credits=DIFFICULTIES[this.difficulty].credits; this.capacity=12; this.gridLevel=0;
@@ -333,4 +335,88 @@ export class Game {
       else this.clearWave();
     }
   }
+}
+
+// Only authoritative simulation data crosses the persistence boundary. Visual events/effects never replay.
+export const SAVE_SCHEMA_VERSION = 1;
+export const GAME_RULES_VERSION = 1;
+export const MAX_SAVE_BYTES = 2 * 1024 * 1024;
+const GAME_NUMBERS = ['hp','credits','capacity','gridLevel','wave','speed','time','kills','nextId','spawnTimer','elapsed','lastReward','overdrive','overdriveCooldown','strikeCooldown'];
+const TOWER_FIELDS = ['id','pad','type','level','invested','cooldown','angle','target'];
+const ENEMY_FIELDS = ['id','type','hp','maxHp','distance','slow','hit','stun','escaped','lit','seen'];
+const PROJECTILE_FIELDS = ['x','y','fromX','fromY','toX','toY','target','tower','kind','damage','splash','slow','age','duration','chain','points','falloff'];
+function pickFields(value,fields) {
+  const result = {};
+  for (const field of fields) if (value[field] !== undefined) result[field] = value[field];
+  return result;
+}
+function snapshotGame(game) {
+  const state = pickFields(game,[...GAME_NUMBERS,'difficulty','phase','paused','endless']);
+  state.towers = game.towers.map(t => pickFields(t,TOWER_FIELDS));
+  state.enemies = game.enemies.map(e => pickFields(e,ENEMY_FIELDS));
+  state.projectiles = game.projectiles.map(p => pickFields(p,PROJECTILE_FIELDS));
+  state.strikes = game.strikes.map(s => pickFields(s,['x','y','delay']));
+  state.queue = [...game.queue];
+  state.beam = {spot:game.beam.spot && {...game.beam.spot},aim:game.beam.aim && {...game.beam.aim},hold:game.beam.hold,charge:game.beam.charge};
+  // Deep-copy chain/points as well so queued saves cannot observe subsequent live mutations.
+  return JSON.parse(JSON.stringify({schemaVersion:SAVE_SCHEMA_VERSION,rulesVersion:GAME_RULES_VERSION,state}));
+}
+function restoreGame(snapshot) {
+  const fail = message => { throw new Error(`Invalid saved run: ${message}`); };
+  if (!snapshot || snapshot.schemaVersion !== SAVE_SCHEMA_VERSION || snapshot.rulesVersion !== GAME_RULES_VERSION) fail('incompatible version');
+  if (JSON.stringify(snapshot).length > MAX_SAVE_BYTES) fail('too large');
+  const s = snapshot.state;
+  if (!s || !Object.hasOwn(DIFFICULTIES,s.difficulty) || !['build','wave','won','lost'].includes(s.phase)) fail('mode');
+  const number = (value,min = 0,max = 1e100) => { if (!Number.isFinite(value) || value < min || value > max) fail('number'); return value; };
+  const integer = (value,min = 0,max = Number.MAX_SAFE_INTEGER) => { number(value,min,max); if (!Number.isSafeInteger(value)) fail('integer'); return value; };
+  const array = (value,max) => { if (!Array.isArray(value) || value.length > max) fail('array'); return value; };
+  const point = value => { if (!value || !canStrikeAt(value.x,value.y)) fail('point'); return {x:value.x,y:value.y}; };
+  const id = value => integer(value,1);
+  const g = new Game({starter:false,difficulty:s.difficulty});
+  for (const field of GAME_NUMBERS) g[field] = number(s[field],field === 'spawnTimer' ? -1e100 : 0);
+  for (const field of ['credits','capacity','gridLevel','wave','kills','nextId','lastReward']) integer(g[field]);
+  integer(g.gridLevel,0,s.endless ? ENDLESS.gridLevels : 4); integer(g.wave,0,10000); number(g.hp,0,100);
+  if (![1,2].includes(g.speed) || typeof s.paused !== 'boolean' || typeof s.endless !== 'boolean') fail('flags');
+  if ((!s.endless && g.wave > WAVES.length) || (s.phase === 'wave' && !g.wave) || (s.phase === 'lost' && g.hp !== 0) || (s.phase === 'won' && (g.wave !== 10 || s.endless))) fail('phase');
+  g.phase = s.phase; g.paused = s.paused; g.endless = s.endless;
+  const ids = new Set(), pads = new Set();
+  const unique = value => { id(value); if (ids.has(value)) fail('duplicate ID'); ids.add(value); };
+  g.towers = array(s.towers,PADS.length).map(t => {
+    if (!t || !Object.hasOwn(TYPES,t.type) || !TARGETING.includes(t.target)) fail('tower');
+    integer(t.pad,0,PADS.length-1); integer(t.level,1,t.type === 'relay' ? 1 : 3); unique(t.id);
+    if (pads.has(t.pad)) fail('duplicate pad'); pads.add(t.pad);
+    integer(t.invested); number(t.cooldown,-1,10); number(t.angle,-Math.PI*2,Math.PI*2);
+    return {...pickFields(t,TOWER_FIELDS),x:PADS[t.pad].x,y:PADS[t.pad].y};
+  });
+  g.enemies = array(s.enemies,10000).map(e => {
+    if (!e || !Object.hasOwn(ENEMIES,e.type)) fail('enemy'); unique(e.id);
+    number(e.hp,-1e100); number(e.maxHp,Number.MIN_VALUE); if (e.hp > e.maxHp) fail('enemy HP');
+    number(e.distance,0,PATH_LENGTH+1); number(e.slow,0,2); number(e.hit,0,1); number(e.stun,0,STRIKE.stun);
+    if (e.escaped !== undefined && typeof e.escaped !== 'boolean') fail('escaped');
+    if (typeof e.lit !== 'boolean' || typeof e.seen !== 'boolean') fail('lighting');
+    return {...ENEMIES[e.type],...pickFields(e,ENEMY_FIELDS),...pathPosition(e.distance)};
+  });
+  if (g.nextId <= Math.max(0,...ids)) fail('next ID');
+  g.projectiles = array(s.projectiles,10000).map(p => {
+    if (!p || !['gun','mortar','frost','arc'].includes(p.kind)) fail('projectile');
+    for (const key of ['x','fromX','toX']) number(p[key],-.5,13.5);
+    for (const key of ['y','fromY','toY']) number(p[key],-.5,11.5);
+    id(p.target); id(p.tower); number(p.damage); number(p.age); number(p.duration,Number.MIN_VALUE,1);
+    // A shot may still reference a sold tower or an enemy killed by an earlier shot.
+    if (p.target >= g.nextId || p.tower >= g.nextId) fail('projectile ID');
+    if (p.kind === 'mortar') number(p.splash,0,3);
+    if (p.kind === 'frost') number(p.slow,0,1);
+    if (p.kind === 'arc') {
+      number(p.falloff,0,1); array(p.chain,8).forEach(n => { id(n); if (n >= g.nextId) fail('chain ID'); });
+      array(p.points,8).forEach(point); if (p.chain.length !== p.points.length) fail('chain points');
+    }
+    return JSON.parse(JSON.stringify(pickFields(p,PROJECTILE_FIELDS)));
+  });
+  g.strikes = array(s.strikes,4).map(s => ({...point(s),delay:number(s.delay,0,STRIKE.delay)}));
+  g.queue = array(s.queue,100000).map(type => { if (!Object.hasOwn(ENEMIES,type)) fail('queue'); return type; });
+  if (!s.beam || (s.beam.spot === null) !== (s.beam.aim === null)) fail('beam');
+  g.beam = {spot:s.beam.spot === null ? null : point(s.beam.spot),aim:s.beam.aim === null ? null : point(s.beam.aim),hold:number(s.beam.hold,0,BEAM.hold),charge:number(s.beam.charge,0,1)};
+  // Movement reads the previous step's lit flag before illuminate() runs. Keep that flag exactly.
+  g.events = []; g.effects = []; g.recomputePower();
+  return g;
 }

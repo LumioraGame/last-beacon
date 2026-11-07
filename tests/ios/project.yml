@@ -1,0 +1,69 @@
+name: LastBeaconSmoke
+options:
+  deploymentTarget:
+    iOS: '15.5'
+projectReferences:
+  LastBeacon:
+    path: ../../ios/App/App.xcodeproj
+targets:
+  MobileSmoke:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - SmokeUITests.swift
+    dependencies:
+      - target: LastBeacon/App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.lumiora.lastbeacon.smoke
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: App
+        SWIFT_VERSION: '5.0'
+  UpgradeCheck:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UpgradeUITests.swift
+    dependencies:
+      - target: LastBeacon/App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.lumiora.lastbeacon.upgradecheck
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: App
+        SWIFT_VERSION: '5.0'
+  StoreCapture:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - StoreCaptureUITests.swift
+    dependencies:
+      - target: LastBeacon/App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.lumiora.lastbeacon.storecapture
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: App
+        SWIFT_VERSION: '5.0'
+schemes:
+  MobileSmoke:
+    build:
+      targets:
+        MobileSmoke: all
+    test:
+      targets:
+        - MobileSmoke
+  UpgradeCheck:
+    build:
+      targets:
+        UpgradeCheck: all
+    test:
+      targets:
+        - UpgradeCheck
+  StoreCapture:
+    build:
+      targets:
+        StoreCapture: all
+    test:
+      targets:
+        - StoreCapture
