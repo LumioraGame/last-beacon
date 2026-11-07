@@ -1,8 +1,12 @@
 name: Mobile readiness
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: mobile-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   game-and-browser:
     runs-on: ubuntu-latest
@@ -36,6 +40,9 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
       - run: npm ci
       - run: npm run build:native && npm run mobile:version && npx cap sync android
       - run: ./gradlew --no-daemon :app:assembleDebug :app:bundleRelease
